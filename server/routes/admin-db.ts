@@ -83,7 +83,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 
 router.get("/tables", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getProductionPool();
+    const pool = getPostgresPool();
 
     const result = await pool.query(`
       SELECT 
