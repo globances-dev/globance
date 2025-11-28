@@ -16,7 +16,7 @@ async function getValidTables(): Promise<Set<string>> {
     WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
   `);
 
-  validTablesCache = new Set(result.rows.map(r => r.table_name));
+  validTablesCache = new Set(result.rows.map((r) => r.table_name));
   return validTablesCache;
 }
 
@@ -26,12 +26,15 @@ async function getValidColumns(tableName: string): Promise<Set<string>> {
   }
 
   const pool = getPostgresPool();
-  const result = await pool.query(`
+  const result = await pool.query(
+    `
     SELECT column_name FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = $1
-  `, [tableName]);
+  `,
+    [tableName],
+  );
 
-  const columns = new Set(result.rows.map(r => r.column_name));
+  const columns = new Set(result.rows.map((r) => r.column_name));
   tableColumnsCache.set(tableName, columns);
   return columns;
 }
@@ -46,7 +49,10 @@ async function validateTableName(tableName: string): Promise<boolean> {
   return validTables.has(tableName);
 }
 
-async function validateColumnName(tableName: string, columnName: string): Promise<boolean> {
+async function validateColumnName(
+  tableName: string,
+  columnName: string,
+): Promise<boolean> {
   if (!isValidIdentifier(columnName)) return false;
   const validColumns = await getValidColumns(tableName);
   return validColumns.has(columnName);
@@ -98,7 +104,7 @@ router.get("/tables", adminMiddleware, async (req: any, res: Response) => {
       result.rows.map(async (table) => {
         try {
           const countResult = await pool.query(
-            `SELECT COUNT(*) as count FROM "${table.table_name}"`
+            `SELECT COUNT(*) as count FROM "${table.table_name}"`,
           );
           return {
             name: table.table_name,
@@ -112,7 +118,7 @@ router.get("/tables", adminMiddleware, async (req: any, res: Response) => {
             rows: 0,
           };
         }
-      })
+      }),
     );
 
     res.json({ tables: tablesWithCounts, database: "production" });
@@ -128,11 +134,11 @@ router.get(
   async (req: any, res: Response) => {
     try {
       const { tableName } = req.params;
-      
-      if (!await validateTableName(tableName)) {
+
+      if (!(await validateTableName(tableName))) {
         return res.status(400).json({ error: "Invalid table name" });
       }
-      
+
       const pool = getPostgresPool();
 
       const result = await pool.query(
@@ -147,7 +153,7 @@ router.get(
       WHERE table_schema = 'public' AND table_name = $1
       ORDER BY ordinal_position
     `,
-        [tableName]
+        [tableName],
       );
 
       const pkResult = await pool.query(
@@ -157,7 +163,7 @@ router.get(
       JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
       WHERE i.indrelid = $1::regclass AND i.indisprimary
     `,
-        [tableName]
+        [tableName],
       );
 
       const primaryKeys = pkResult.rows.map((r) => r.column_name);
@@ -177,7 +183,7 @@ router.get(
       console.error("[AdminDB] Get schema error:", error);
       res.status(500).json({ error: error.message });
     }
-  }
+  },
 );
 
 router.get(
@@ -188,7 +194,7 @@ router.get(
       const { tableName } = req.params;
       const { page = 1, limit = 50, orderBy, orderDir = "asc" } = req.query;
 
-      if (!await validateTableName(tableName)) {
+      if (!(await validateTableName(tableName))) {
         return res.status(400).json({ error: "Invalid table name" });
       }
 
@@ -198,8 +204,10 @@ router.get(
       let query = `SELECT * FROM "${tableName}"`;
 
       if (orderBy) {
-        if (!await validateColumnName(tableName, orderBy as string)) {
-          return res.status(400).json({ error: "Invalid column name for ordering" });
+        if (!(await validateColumnName(tableName, orderBy as string))) {
+          return res
+            .status(400)
+            .json({ error: "Invalid column name for ordering" });
         }
         const direction = orderDir === "desc" ? "DESC" : "ASC";
         query += ` ORDER BY "${orderBy}" ${direction}`;
@@ -214,7 +222,7 @@ router.get(
         offset,
       ]);
       const countResult = await pool.query(
-        `SELECT COUNT(*) as count FROM "${tableName}"`
+        `SELECT COUNT(*) as count FROM "${tableName}"`,
       );
 
       res.json({
@@ -224,14 +232,14 @@ router.get(
         page: parseInt(page as string),
         limit: parseInt(limit as string),
         totalPages: Math.ceil(
-          parseInt(countResult.rows[0].count) / parseInt(limit as string)
+          parseInt(countResult.rows[0].count) / parseInt(limit as string),
         ),
       });
     } catch (error: any) {
       console.error("[AdminDB] Get data error:", error);
       res.status(500).json({ error: error.message });
     }
-  }
+  },
 );
 
 router.put(
@@ -246,16 +254,16 @@ router.put(
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      if (!await validateTableName(tableName)) {
+      if (!(await validateTableName(tableName))) {
         return res.status(400).json({ error: "Invalid table name" });
       }
 
-      if (!await validateColumnName(tableName, primaryKey)) {
+      if (!(await validateColumnName(tableName, primaryKey))) {
         return res.status(400).json({ error: "Invalid primary key column" });
       }
 
       for (const key of Object.keys(updates)) {
-        if (!await validateColumnName(tableName, key)) {
+        if (!(await validateColumnName(tableName, key))) {
           return res.status(400).json({ error: `Invalid column name: ${key}` });
         }
       }
@@ -288,14 +296,14 @@ router.put(
       }
 
       console.log(
-        `[AdminDB] Row updated in ${tableName} by admin ${req.user.id}`
+        `[AdminDB] Row updated in ${tableName} by admin ${req.user.id}`,
       );
       res.json({ success: true, row: result.rows[0] });
     } catch (error: any) {
       console.error("[AdminDB] Update row error:", error);
       res.status(500).json({ error: error.message });
     }
-  }
+  },
 );
 
 router.delete(
@@ -310,11 +318,11 @@ router.delete(
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      if (!await validateTableName(tableName)) {
+      if (!(await validateTableName(tableName))) {
         return res.status(400).json({ error: "Invalid table name" });
       }
 
-      if (!await validateColumnName(tableName, primaryKey)) {
+      if (!(await validateColumnName(tableName, primaryKey))) {
         return res.status(400).json({ error: "Invalid primary key column" });
       }
 
@@ -322,7 +330,7 @@ router.delete(
 
       const result = await pool.query(
         `DELETE FROM "${tableName}" WHERE "${primaryKey}" = $1 RETURNING *`,
-        [primaryKeyValue]
+        [primaryKeyValue],
       );
 
       if (result.rows.length === 0) {
@@ -330,95 +338,103 @@ router.delete(
       }
 
       console.log(
-        `[AdminDB] Row deleted from ${tableName} by admin ${req.user.id}`
+        `[AdminDB] Row deleted from ${tableName} by admin ${req.user.id}`,
       );
       res.json({ success: true, deleted: result.rows[0] });
     } catch (error: any) {
       console.error("[AdminDB] Delete row error:", error);
       res.status(500).json({ error: error.message });
     }
-  }
+  },
 );
+
+router.post("/query", adminMiddleware, async (req: any, res: Response) => {
+  try {
+    const { sql } = req.body;
+
+    if (!sql) {
+      return res.status(400).json({ error: "SQL query required" });
+    }
+
+    let normalizedSql = sql
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .replace(/--.*$/gm, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+
+    const semicolonCount = (normalizedSql.match(/;/g) || []).length;
+    if (
+      semicolonCount > 1 ||
+      (semicolonCount === 1 && !normalizedSql.endsWith(";"))
+    ) {
+      return res.status(403).json({
+        error:
+          "Multiple statements are not allowed. Execute one query at a time.",
+      });
+    }
+
+    normalizedSql = normalizedSql.replace(/;$/, "").trim();
+
+    const firstWord = normalizedSql.split(/\s+/)[0];
+    if (firstWord !== "select" && firstWord !== "with") {
+      return res.status(403).json({
+        error:
+          "Only SELECT and WITH (CTE) queries are allowed. Use the table browser for data modifications.",
+      });
+    }
+
+    const dangerousPatterns = [
+      /\binsert\s+into\b/i,
+      /\bupdate\s+\w+\s+set\b/i,
+      /\bdelete\s+from\b/i,
+      /\bdrop\s+(table|database|index|view|schema)\b/i,
+      /\btruncate\s+(table)?\b/i,
+      /\balter\s+(table|database|index|view|schema)\b/i,
+      /\bcreate\s+(table|database|index|view|schema|function|trigger)\b/i,
+      /\bgrant\b/i,
+      /\brevoke\b/i,
+      /\bexec(ute)?\b/i,
+      /\bcopy\s/i,
+      /\bpg_sleep\b/i,
+    ];
+
+    for (const pattern of dangerousPatterns) {
+      if (pattern.test(normalizedSql)) {
+        return res.status(403).json({
+          error:
+            "This query contains data modification statements which are not allowed. Only read-only SELECT queries are permitted.",
+        });
+      }
+    }
+
+    const pool = getPostgresPool();
+    const result = await pool.query(sql);
+
+    console.log(
+      `[AdminDB] Custom query executed by admin ${req.user.id}: ${sql.substring(0, 100)}`,
+    );
+
+    res.json({
+      success: true,
+      rows: result.rows,
+      rowCount: result.rowCount,
+      command: result.command,
+    });
+  } catch (error: any) {
+    console.error("[AdminDB] Query error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 router.post(
-  "/query",
+  "/refresh-cache",
   adminMiddleware,
   async (req: any, res: Response) => {
-    try {
-      const { sql } = req.body;
-
-      if (!sql) {
-        return res.status(400).json({ error: "SQL query required" });
-      }
-
-      let normalizedSql = sql
-        .replace(/\/\*[\s\S]*?\*\//g, ' ')
-        .replace(/--.*$/gm, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
-
-      const semicolonCount = (normalizedSql.match(/;/g) || []).length;
-      if (semicolonCount > 1 || (semicolonCount === 1 && !normalizedSql.endsWith(';'))) {
-        return res.status(403).json({
-          error: "Multiple statements are not allowed. Execute one query at a time.",
-        });
-      }
-
-      normalizedSql = normalizedSql.replace(/;$/, '').trim();
-
-      const firstWord = normalizedSql.split(/\s+/)[0];
-      if (firstWord !== 'select' && firstWord !== 'with') {
-        return res.status(403).json({
-          error: "Only SELECT and WITH (CTE) queries are allowed. Use the table browser for data modifications.",
-        });
-      }
-
-      const dangerousPatterns = [
-        /\binsert\s+into\b/i,
-        /\bupdate\s+\w+\s+set\b/i,
-        /\bdelete\s+from\b/i,
-        /\bdrop\s+(table|database|index|view|schema)\b/i,
-        /\btruncate\s+(table)?\b/i,
-        /\balter\s+(table|database|index|view|schema)\b/i,
-        /\bcreate\s+(table|database|index|view|schema|function|trigger)\b/i,
-        /\bgrant\b/i,
-        /\brevoke\b/i,
-        /\bexec(ute)?\b/i,
-        /\bcopy\s/i,
-        /\bpg_sleep\b/i,
-      ];
-
-      for (const pattern of dangerousPatterns) {
-        if (pattern.test(normalizedSql)) {
-          return res.status(403).json({
-            error: "This query contains data modification statements which are not allowed. Only read-only SELECT queries are permitted.",
-          });
-        }
-      }
-
-      const pool = getPostgresPool();
-      const result = await pool.query(sql);
-
-      console.log(`[AdminDB] Custom query executed by admin ${req.user.id}: ${sql.substring(0, 100)}`);
-
-      res.json({
-        success: true,
-        rows: result.rows,
-        rowCount: result.rowCount,
-        command: result.command,
-      });
-    } catch (error: any) {
-      console.error("[AdminDB] Query error:", error);
-      res.status(500).json({ error: error.message });
-    }
-  }
+    validTablesCache = null;
+    tableColumnsCache.clear();
+    res.json({ success: true, message: "Cache cleared" });
+  },
 );
-
-router.post("/refresh-cache", adminMiddleware, async (req: any, res: Response) => {
-  validTablesCache = null;
-  tableColumnsCache.clear();
-  res.json({ success: true, message: "Cache cleared" });
-});
 
 export default router;
