@@ -8,6 +8,14 @@
   DEBUG_MODE = "false"
   VITE_PUBLIC_BUILDER_KEY = "__BUILDER_PUBLIC_KEY__"
 
+# Required environment variables (set in Netlify dashboard):
+# - DATABASE_URL: Neon PostgreSQL connection string
+# - SENDGRID_API_KEY: SendGrid API key for email service
+# - JWT_SECRET: Secret for JWT token signing
+# - CRON_SECRET: Secret for CronJob.org mining trigger verification
+# - NOWPAYMENTS_API_KEY: NOWPayments integration API key
+# - NOWPAYMENTS_IPN_SECRET: NOWPayments webhook verification secret
+
 [[redirects]]
   force = true
   from = "/api/*"
