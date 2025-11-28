@@ -1,0 +1,107 @@
+Hi team 👋,
+
+I want to redesign the Recent Deposits and Recent Withdrawals sections on the Wallet page to look much more modern, clean, and premium.
+
+Please update both sections to use a vertical timeline style, similar to high-end fintech dashboards.
+
+========================================= 🔰 NEW TRANSACTION UI — TIMELINE STYLE
+
+✔ Please implement the following design:
+
+Each transaction item must appear as a vertical timeline node, using this structure:
+
+● [Amount] USDT — [Status] (TRC20/BEP20)
+   [Date - Time]
+   Fee: [Fee Amount]
+
+✔ Detailed UI Requirements
+
+1️⃣ Vertical Timeline Node
+
+A left vertical line (thin, soft opacity)
+
+A circular node “●” representing a transaction
+
+Node color based on status:
+
+Green → Completed
+
+Yellow → Pending
+
+Red → Failed
+
+
+
+2️⃣ Main Line Content
+Bold amount + status
+Example:
+● 100 USDT — Completed (TRC20)
+
+3️⃣ Sub Text (smaller, lighter color)
+
+Date + time
+
+Fee amount
+Example:
+Nov 26, 2025 — 02:19 AM
+Fee: 1 USDT
+
+
+4️⃣ Spacing & Styling
+
+Each transaction block should have:
+
+Rounded corners
+
+Soft background (dark card)
+
+Clean padding
+
+Minimalistic, premium layout
+
+
+Perfect fit for 360px mobile screens
+
+No table format, no grid — fully timeline-based
+
+
+5️⃣ Remove the old table
+The current table is visually unattractive on mobile.
+Please remove it entirely and replace with the new timeline layout.
+
+6️⃣ Two Sections Required
+
+Recent Deposits
+
+Recent Withdrawals
+
+
+Both use the same timeline style.
+
+7️⃣ If empty
+Show a clean empty state like:
+
+No withdrawals yet
+Your transactions will appear here.
+
+========================================= 🎨 Design Direction (IMPORTANT)
+
+This timeline must visually match the overall GLOBANCE theme:
+
+Gold + Black premium aesthetic
+
+Smooth card backgrounds
+
+Soft shadow
+
+Modern typography
+
+Icon colors matching the status
+
+
+The goal is to make the transaction history look luxury, clean, modern, and professional, like a high-end crypto exchange.
+
+=========================================
+
+Thanks team!
+Please go ahead and implement the timeline-style transaction UI exactly as specified.

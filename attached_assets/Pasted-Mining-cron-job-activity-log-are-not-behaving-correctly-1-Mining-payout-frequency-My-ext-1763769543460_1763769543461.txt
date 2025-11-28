@@ -1,0 +1,53 @@
+Mining cron job & activity log are not behaving correctly.
+
+1) Mining payout frequency
+
+- My external cron (EasyCron/UptimeRobot/etc.) is configured to call
+  /api/mining/process-daily-earnings ONCE PER DAY at 21:00 UTC.
+- But on the live site my "Total Earned" and total balance are increasing
+  multiple times within a short period (every few minutes).
+- This means the mining process is being triggered more often than once per day
+  from somewhere inside the backend.
+
+Please:
+
+a) Check the cron_logs table and show the last 30 entries with timestamps.
+   I want to confirm how often process-daily-earnings is actually being run.
+b) Search the codebase for any other place that calls
+   processDailyEarnings or /api/mining/process-daily-earnings:
+   - internal node-cron
+   - setInterval
+   - test/debug scripts
+   - admin-only/manual trigger
+   - second external cron configuration
+c) Remove or adjust any extra triggers so that mining is executed
+   EXACTLY once per day at 21:00 UTC, and only from the official cron.
+
+2) "Today" and "Recent Activity" not showing Mining Reward
+
+- My balance and Total Earned are increasing, so payouts are happening.
+- But the "Today" card still shows $0.00.
+- The Recent Activity list does NOT show any "Mining Reward" entries.
+
+Earlier we filtered activity to only show real mining payouts with:
+- transaction_type = 'daily_mining_income'
+- amount_usdt > 0
+
+Please verify in the mining cron code (processDailyEarnings) that:
+
+a) It is actually calling recordEarningsTransaction (or equivalent)
+   when adding mining rewards.
+b) The transaction_type for cron payouts is EXACTLY
+   'daily_mining_income' and not some other string like 'mining_reward'
+   or 'investment'.
+c) The amount_usdt inserted is > 0 and matches the reward added to
+   the user balance.
+d) The "Today" card and Activity feed endpoints are both reading from
+   the same earnings_transactions table and include mining payouts
+   that match today's UTC date.
+
+In short:
+- Fix any extra cron triggers so payouts run once per day at 21:00 UTC.
+- Make sure each payout writes a proper earnings_transactions row
+  with transaction_type = 'daily_mining_income' and amount_usdt > 0
+  so that "Today" and "Recent Activity" show the Mining Reward correctly.

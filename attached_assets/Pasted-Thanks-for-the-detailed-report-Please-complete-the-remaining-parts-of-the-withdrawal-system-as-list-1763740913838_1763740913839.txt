@@ -1,0 +1,73 @@
+Thanks for the detailed report. Please complete the remaining parts of the withdrawal system as listed below.
+
+I need the following implemented now:
+
+---------------------------------------
+1) Admin Withdrawal Management Dashboard
+---------------------------------------
+Please create the full admin section for withdrawals, similar to DepositMonitoring.
+
+The admin dashboard must include:
+- A list of all withdrawals with:
+  • user email
+  • network (TRC20/BEP20)
+  • withdrawal address
+  • amount
+  • fee
+  • net_amount
+  • status (pending, processing, completed, failed)
+  • date and time
+
+- Filters:
+  • by status
+  • by user email
+  • by network
+  • by date range
+
+- View details for a specific withdrawal:
+  • transaction hash or payout ID
+  • timestamps
+  • log details
+  • error messages (if failed)
+
+Please add:
+import WithdrawalMonitoring from "../components/admin/WithdrawalMonitoring";
+{activeSection === 'withdrawals' && <WithdrawalMonitoring />}
+
+---------------------------------------
+2) Admin API Endpoints for Withdrawals
+---------------------------------------
+Please implement and connect:
+
+GET /api/admin/withdrawals
+GET /api/admin/withdrawals/:id
+
+Both endpoints must support:
+- filtering
+- sorting
+- pagination (if needed)
+- admin-only protection
+
+---------------------------------------
+3) Address Validation Improvements
+---------------------------------------
+Please upgrade the withdrawal address validation:
+
+TRC20:
+- must start with "T"
+- must be 34 characters long
+
+BEP20:
+- must start with "0x"
+- must be 42 characters long
+
+Also:
+- prevent users from withdrawing to the same address used as the deposit master wallet
+- add clear error messages for invalid formats
+
+---------------------------------------
+4) Final Step
+---------------------------------------
+After these updates, please test the full admin withdrawal system and confirm everything is functional and integrated with the backend.
+
+Let me know when all fixes are done so I can continue testing.

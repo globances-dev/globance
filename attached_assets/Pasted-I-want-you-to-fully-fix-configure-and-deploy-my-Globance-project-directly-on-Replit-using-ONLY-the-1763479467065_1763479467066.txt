@@ -1,0 +1,175 @@
+I want you to fully fix, configure, and deploy my Globance project directly on Replit using ONLY the code already inside this Replit workspace. I do NOT want to use GitHub, Netlify, or Builder.io anymore.
+
+Please take full control and automatically do all the required steps below:
+
+--------------------------------------------
+# 1️⃣ FIX PROJECT STRUCTURE (VERY IMPORTANT)
+--------------------------------------------
+Check my current Replit project folders and make the app run as a full-stack:
+
+CLIENT:
+- React + Vite frontend
+
+SERVER:
+- Node.js + Express backend
+
+ROOT:
+- package.json for both client + server
+- .env file
+
+If the folders are not correct, please:
+✔️ Auto-detect client & server folders  
+✔️ Move files into correct places  
+✔️ Remove Netlify-specific code  
+✔️ Fix imports and paths  
+
+--------------------------------------------
+# 2️⃣ GENERATE REQUIRED FILES
+--------------------------------------------
+If missing, please automatically create:
+
+✔️ .replit  
+✔️ replit.nix  
+✔️ replit.json  
+✔️ root package.json with correct scripts  
+✔️ vite.config.js / vite.config.ts  
+✔️ backend index.js / server.js (Express)  
+✔️ client build output → /dist  
+✔️ .env.example  
+
+Everything should work inside Replit only.
+
+--------------------------------------------
+# 3️⃣ FIX package.json SCRIPTS
+--------------------------------------------
+Root package.json MUST have:
+
+{
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix client\" \"npm run dev --prefix server\"",
+    "build": "npm run build --prefix client",
+    "start": "node server/index.js"
+  }
+}
+
+Also ensure all dependencies are installed correctly.
+
+--------------------------------------------
+# 4️⃣ SET UP EXPRESS BACKEND
+--------------------------------------------
+Backend requirements:
+
+✔️ Must run from: server/index.js  
+✔️ Must read .env variables  
+✔️ Must expose all API endpoints:
+/api/auth/*  
+/api/packages/*  
+/api/mining/process-daily-earnings  
+/api/deposits/*  
+/api/p2p/*  
+/api/webhook/nowpayments  
+
+✔️ Must support RAW BODY for NOWPayments webhook  
+✔️ Must listen on process.env.PORT  
+
+Serve frontend:
+
+app.use(express.static("client/dist"));
+app.get("*", (req, res) => res.sendFile(path.join(__dirname, "client/dist/index.html")));
+
+--------------------------------------------
+# 5️⃣ SET UP FRONTEND (VITE)
+--------------------------------------------
+✔️ Build frontend using Vite  
+✔️ Output goes to: client/dist  
+✔️ Fix any incorrect paths  
+✔️ Ensure base URL is correct  
+✔️ No Netlify code  
+✔️ No Vercel config  
+✔️ Everything runs from Replit server
+
+--------------------------------------------
+# 6️⃣ ENVIRONMENT VARIABLES
+--------------------------------------------
+Please create a .env file for me and configure the backend to use:
+
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+JWT_SECRET=
+CRON_SECRET=
+NOWPAYMENTS_API_KEY=
+NOWPAYMENTS_IPN_SECRET=
+APP_URL=
+NODE_ENV=production
+
+You can create .env.example too.
+
+--------------------------------------------
+# 7️⃣ FIX SUPABASE INTEGRATION
+--------------------------------------------
+✔️ Use Supabase client in backend  
+✔️ Connect using service_role  
+✔️ Ensure all tables match my schema  
+✔️ Make sure imports + queries are correct
+
+--------------------------------------------
+# 8️⃣ MINING CRON ENDPOINT
+--------------------------------------------
+Create this working endpoint:
+
+POST /api/mining/process-daily-earnings
+
+• Calculate daily % based on packages  
+• Update wallet balances  
+• Insert records in earnings_transactions  
+• Log everything in cron_logs  
+• Protect with x-cron-secret header  
+
+I will call this using cron-job.org every day.
+
+--------------------------------------------
+# 9️⃣ NOWPAYMENTS WEBHOOK ENDPOINT
+--------------------------------------------
+Create endpoint:
+
+POST /api/webhook/nowpayments
+
+Requirements:
+✔️ Accept raw JSON  
+✔️ Validate IPN secret  
+✔️ Update deposits  
+✔️ Update wallet for completed payments  
+✔️ Return { success: true }
+
+--------------------------------------------
+# 🔟 PRODUCTION DEPLOYMENT ON REPLIT
+--------------------------------------------
+After fixing everything, please:
+
+✔️ Create a production deployment (Always-On)  
+✔️ Provide me the final live URL  
+✔️ Confirm server starts without errors  
+✔️ Confirm client loads correctly  
+✔️ Confirm all API endpoints respond  
+✔️ Confirm webhook URL is accessible  
+✔️ Confirm cron endpoint is accessible  
+✔️ Confirm environment variables load  
+✔️ Ensure there is only ONE running server  
+
+--------------------------------------------
+# 1️⃣1️⃣ FINAL DELIVERABLE
+--------------------------------------------
+When everything is done, tell me:
+
+• “Your app is now fully deployed on Replit”  
+• Provide the production URL  
+• Instructions for connecting cron-job.org  
+• Instructions for setting NOWPayments webhook  
+• Instructions for updating .env in Replit  
+
+--------------------------------------------
+
+Please begin now.  
+Fix anything broken, restructure anything needed.  
+You have full permission to modify files and generate new ones.

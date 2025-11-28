@@ -1,0 +1,138 @@
+Please remove ALL references to “P2P” as a main platform feature.
+P2P is only a payment gateway inside the app, NOT part of the platform’s branding.
+I want Globance to be branded ONLY as a Cloud Mining Platform.
+
+✔️ What to Update Everywhere (Frontend + Backend):
+
+1. SEO & Metadata
+
+Please update ALL SEO tags and remove every “P2P” mention from:
+
+<title> tags
+
+<meta name="description">
+
+<meta property="og:title">
+
+<meta property="og:description">
+
+<meta name="twitter:title">
+
+<meta name="twitter:description">
+
+manifest files (if included)
+
+sitemap (if included)
+
+
+Replace with:
+
+Title:
+Globance – Cloud Mining Platform
+
+Meta Description:
+Globance is a professional cloud mining platform offering secure, automated daily mining rewards.
+
+OG Description:
+Globance – Automated Cloud Mining Platform. Earn daily mining rewards securely.
+
+No mention of P2P.
+
+
+---
+
+2. Remove P2P From Branding Text
+
+Please ensure the following screens/pages do NOT mention P2P:
+
+Landing page
+
+Login page
+
+Register page
+
+Footer
+
+App header/title
+
+Browser tab titles
+
+Any promotional text
+
+
+Only the internal P2P page should mention P2P.
+
+
+---
+
+3. Email Templates
+
+Please remove “P2P” from all email templates, including:
+
+Welcome email
+
+Registration confirmation
+
+Verification email
+
+Password reset email
+
+Notification emails
+
+
+Only Cloud Mining branding should remain.
+
+
+---
+
+4. Admin Panel
+
+Please remove P2P from the main dashboard summary.
+P2P should only exist inside its own section.
+
+The admin panel should appear as a Cloud Mining dashboard by default, not a P2P dashboard.
+
+
+---
+
+5. Browser Title
+
+Please update all pages so the browser tab title is:
+
+Globance – Cloud Mining Platform
+
+No variations with “P2P”.
+
+
+---
+
+6. General Rule
+
+P2P appears only inside the dedicated P2P page as a payment gateway.
+It must not appear anywhere else as a platform feature or headline.
+
+
+---
+
+📌 Summary
+
+I want P2P to remain as an internal payment method, but I do NOT want it shown in:
+
+SEO
+
+Page previews
+
+Telegram previews
+
+Meta tags
+
+Titles
+
+Email templates
+
+Admin dashboard overviews
+
+App headers
+
+
+Only Cloud Mining should be the platform’s public identity.

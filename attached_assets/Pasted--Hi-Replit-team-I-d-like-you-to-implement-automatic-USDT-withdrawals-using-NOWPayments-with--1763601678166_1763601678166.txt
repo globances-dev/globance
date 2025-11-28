@@ -1,0 +1,196 @@
+> Hi Replit team 👋
+
+I’d like you to implement automatic USDT withdrawals using NOWPayments, with these exact rules and flows. I am not using Tatum at all anymore, only NOWPayments.
+
+🔐 Security / NOWPayments setup
+
+I have NOWPayments Custody / Mass Payouts enabled.
+
+I have already disabled 2FA for payouts with NOWPayments support.
+
+You can assume payouts can be sent directly via the Mass Payouts / Custody payout API from my NOWPayments balance.
+
+
+Please make sure all withdrawal logic is server-side only (no API keys in frontend).
+
+
+---
+
+1️⃣ Business Rules for Withdrawals
+
+1. Network: USDT TRC20 and USDT BEP20 only
+
+
+2. User can withdraw only from wallets.usdt_balance
+
+
+3. Minimum withdrawal amount: 10 USDT
+
+
+4. Fee: fixed 1 USDT per withdrawal
+
+
+5. Net sent to user = requested_amount - 1
+
+
+6. Fee (1 USDT) should be recorded as platform income, not sent to the user
+
+
+7. Withdrawals must be instant & fully automatic after user confirms
+
+
+
+If user tries to withdraw:
+
+< 10 USDT → return error:
+"Minimum withdrawal amount is 10 USDT."
+
+more than their balance → return error:
+"Insufficient balance."
+
+
+
+---
+
+2️⃣ API & Database Requirements
+
+A) Withdrawals table (if not already there)
+
+If there is no withdrawals table yet, please create it in Supabase (production DB) with at least:
+
+id (uuid, PK, default gen_random_uuid())
+
+user_id (uuid, FK → users.id)
+
+amount (numeric) — amount user requested
+
+fee (numeric) — always 1
+
+net_amount (numeric) — amount - fee
+
+network (text: 'TRC20' or 'BEP20')
+
+to_address (text) — user’s withdrawal address
+
+status (text: 'pending', 'processing', 'completed', 'failed')
+
+nowpayments_payout_id (text, nullable)
+
+error_message (text, nullable)
+
+created_at, updated_at timestamps
+
+
+Please also ensure there is a place to store fees (either:
+
+a column like wallets.platform_fee_balance, or
+
+a separate table platform_earnings / earnings_transactions with a record of each 1 USDT fee).
+
+
+B) New backend route: Create withdrawal request
+
+Create a protected endpoint, something like:
+
+POST /api/wallet/withdraw
+
+Auth required (JWT, current logged-in user)
+
+
+Request body:
+
+{
+  "amount": 120,
+  "network": "TRC20",
+  "address": "USER_USDT_ADDRESS"
+}
+
+Logic:
+
+1. Validate amount >= 10
+
+
+2. Validate network is "TRC20" or "BEP20"
+
+
+3. Validate address is not empty
+
+
+4. Load user wallet from wallets table
+
+
+5. Check wallet.usdt_balance >= amount
+
+
+6. Compute:
+
+fee = 1
+
+net_amount = amount - fee
+
+
+
+7. If net_amount <= 0, reject
+
+
+8. Start a transaction:
+
+Insert row into withdrawals with status "processing"
+
+Deduct full amount from wallets.usdt_balance
+
+Add fee to platform fee balance (or insert into platform earnings table)
+
+
+
+9. Call a NOWPayments payout API from the backend to send net_amount USDT to user’s address on the selected network.
+
+
+10. Store nowpayments_payout_id and response data.
+
+
+11. If payout API call is successful → set status = 'completed'
+
+
+12. If payout API call fails →
+
+set status = 'failed'
+
+optionally refund the amount: add back (amount) to wallet and reverse fee
+
+
+
+
+Response:
+
+{
+  "success": true,
+  "message": "Withdrawal created successfully.",
+  "withdrawal": {
+    "id": "...",
+    "amount": 120,
+    "fee": 1,
+    "net_amount": 119,
+    "status": "processing"
+  }
+}
+
+Or on error:
+
+{ "success": false, "error": "Reason..." }
+
+
+---
+
+3️⃣ NOWPayments Integration (Withdrawals Only)
+
+I’m already using NOWPayments for deposits, so the environment variables should exist:
+
+NOWPAYMENTS_API_KEY
+
+NOWPAYMENTS_IPN_SECRET
+
+
+For withdrawals / payouts, please:
+
+1. Use NOWPayments Mass Payouts / Custody API to send USDT from my NOWPayments balance to the user’s address.

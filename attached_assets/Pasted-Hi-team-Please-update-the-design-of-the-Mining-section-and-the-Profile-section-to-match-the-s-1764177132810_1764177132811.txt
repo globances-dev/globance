@@ -1,0 +1,130 @@
+Hi team 👋,
+
+Please update the design of the Mining section and the Profile section to match the same professional, premium dark-theme style used on the Home page and similar to Binance.
+
+Both sections currently use brown/yellow gradient cards, which look outdated and inconsistent with the rest of the platform.
+
+=========================================== 🎨 1. Apply Binance-Style Colors Across All Pages
+
+Please update the entire platform UI (Mining, Profile, Wallet, P2P, Home) to use a unified color system, inspired by Binance:
+
+Dark Theme Backgrounds
+
+Main background: #0F1115
+
+Card background: #181A20
+
+Secondary background: #1E2126
+
+
+Text Colors
+
+Primary text: #FFFFFF
+
+Secondary text: #9CA3AF
+
+Disabled text: #6B7280
+
+
+Accent Colors
+
+Gold accent: #F0B90B (use this lightly)
+
+Success: #27C46B
+
+Danger: #FF4444
+
+Blue accent for actions: #3B82F6
+
+
+=========================================== 📦 2. Fix Mining Page UI
+
+Please restyle the Mining cards so they look modern and match the Home card style:
+
+Replace:
+
+❌ Brown/yellow background
+❌ Brown tinted inner boxes
+❌ Heavy gradients
+
+Use:
+
+✔️ Dark card background (#181A20)
+✔️ Soft subtle shadow
+✔️ Gold only as accent text (Daily %, icons)
+✔️ Clean white text for titles
+✔️ Progress bar in Binance style (thin, flat, smooth)
+✔️ “Active” badge with Binance-style green (#27C46B)
+
+The Mining page should visually match the Home page and Wallet page.
+
+=========================================== 👤 3. Fix Profile Page UI
+
+Please restyle the Profile page similarly:
+
+Replace:
+
+❌ Yellow/brown header card
+❌ Large outdated background gradients
+❌ Strong yellow boxes
+
+Use:
+
+✔️ Dark card (#181A20) like Home
+✔️ Soft luxury border radius
+✔️ White text, secondary gray text
+✔️ Gold accent only for icons and the Referral Dashboard button
+✔️ Clean flat modern logout button (red accent #FF4444)
+
+Everything should feel consistent with Home and Binance’s UI.
+
+=========================================== 🔘 4. Button Consistency
+
+Please update ALL primary buttons across all pages:
+
+Primary button:
+
+Background: #F0B90B
+
+Text: #000000
+
+Rounded, clean, modern
+
+Same size as “Deposit / Buy Power” on Home
+
+
+Secondary button:
+
+Background: transparent
+
+Border: #F0B90B
+
+Text: #F0B90B
+
+
+Important buttons:
+
+Withdraw on Wallet → Blue (#3B82F6)
+
+Logout → Red (#FF4444)
+
+
+=========================================== 🎯 Final Goal
+
+Please make the Mining page, Profile page, Wallet page, and all UI elements match the same design system used on the Home page and modeled after Binance:
+
+Same spacing
+
+Same padding
+
+Same color palette
+
+Same modern card style
+
+Same professional theme
+
+
+This will give the entire GLOBANCE platform a clean, luxury, premium, Binance-level UI.
+
+Thanks!
+Please proceed with the full UI restyling.

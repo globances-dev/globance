@@ -1,0 +1,123 @@
+Hi, I want to proceed with NOWPayments only (no Tatum at all).
+Here is exactly what I need you to build for my platform:
+
+
+---
+
+1️⃣ Permanent Deposit Addresses — using NOWPayments Custody
+
+Please implement NOWPayments Custody API so that:
+
+When a new user registers, the backend automatically creates:
+
+1 permanent USDT TRC20 deposit address
+
+1 permanent USDT BEP20 deposit address
+
+
+Save these addresses in deposit_addresses table linked to the user
+
+These addresses must be reusable forever
+
+All future deposits to those addresses must trigger balance updates through webhook
+
+
+
+---
+
+2️⃣ Automatic Deposit Processing (IPN Webhook)
+
+Please configure and implement:
+
+/api/webhook/nowpayments
+
+Verify NOWPayments signature
+
+Process finished payments only
+
+Check pay_address
+
+Match user by deposit address
+
+Credit USDT balance
+
+Create a deposits record
+
+Send email confirmation
+
+
+I do NOT want temporary invoice addresses.
+Everything must use Custody + permanent deposit addresses.
+
+
+---
+
+3️⃣ Platform Deposit Rules (Backend Enforced)
+
+Please add the following backend limits:
+
+Minimum deposit: 10 USDT
+
+Network allowed: TRC20 & BEP20
+
+Reject any deposit below 10 USDT
+
+Status for rejected deposit should be "failed"
+
+
+This rule must be enforced in webhook processing.
+
+
+---
+
+4️⃣ Withdrawal System (Second Stage)
+
+Please add the backend structure for withdrawals but do NOT activate it yet.
+
+When we finish deposits, I will ask you to implement full automatic withdrawals using NOWPayments Mass Payouts + OTP automation.
+
+For now:
+
+Create withdrawal API endpoints (request, validate balance, record request)
+
+Do not call NOWPayments yet
+
+
+
+---
+
+5️⃣ Remove All Tatum Code
+
+Please remove:
+
+Tatum API keys
+
+Tatum dependencies
+
+Tatum services
+
+Tatum utility files
+
+Any Tatum references in wallet routes
+
+Any unused environment variables related to Tatum
+
+
+Only NOWPayments should remain in the backend.
+
+
+---
+
+6️⃣ Confirm Required Environment Variables
+
+I need the backend to use ONLY these:
+
+NOWPAYMENTS_API_KEY=
+NOWPAYMENTS_IPN_SECRET=
+JWT_SECRET=
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE=
+SENDGRID_API_KEY=
+
+If anything else is required, tell me.

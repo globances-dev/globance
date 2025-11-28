@@ -1,0 +1,246 @@
+/** @import must precede all other statements */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /**
+   * GLOBANCE - Premium Dark Theme
+   * Binance-Style Professional Color System
+   * Clean, Modern, Premium Aesthetic
+  */
+  :root {
+    /* Primary Background: #12161C */
+    --background: 210 19% 9%;
+    --foreground: 0 0% 100%;
+
+    /* Card Background: #2B3139 */
+    --card: 214 15% 20%;
+    --card-foreground: 0 0% 100%;
+
+    /* Popover: #2B3139 */
+    --popover: 214 15% 20%;
+    --popover-foreground: 0 0% 100%;
+
+    /* Primary - Binance Gold #F0B90B */
+    --primary: 45 93% 49%;
+    --primary-foreground: 210 19% 9%;
+
+    /* Secondary Background: #1E2329 */
+    --secondary: 215 16% 14%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Muted: #6F7680 */
+    --muted: 215 16% 14%;
+    --muted-foreground: 210 7% 47%;
+
+    /* Accent - Same as Primary Gold */
+    --accent: 45 93% 49%;
+    --accent-foreground: 210 19% 9%;
+
+    /* Destructive - Danger Red #F6465D */
+    --destructive: 352 90% 62%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders: rgba(255,255,255,0.05) equivalent */
+    --border: 210 10% 20%;
+    --input: 215 16% 14%;
+    --ring: 45 93% 49%;
+
+    --radius: 0.5rem;
+
+    /* Sidebar */
+    --sidebar-background: 215 16% 14%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 45 93% 49%;
+    --sidebar-primary-foreground: 210 19% 9%;
+    --sidebar-accent: 45 93% 49%;
+    --sidebar-accent-foreground: 210 19% 9%;
+    --sidebar-border: 210 10% 20%;
+    --sidebar-ring: 45 93% 49%;
+  }
+
+  .dark {
+    /* Primary Background: #12161C */
+    --background: 210 19% 9%;
+    --foreground: 0 0% 100%;
+
+    /* Card Background: #2B3139 */
+    --card: 214 15% 20%;
+    --card-foreground: 0 0% 100%;
+
+    /* Popover: #2B3139 */
+    --popover: 214 15% 20%;
+    --popover-foreground: 0 0% 100%;
+
+    /* Primary - Binance Gold #F0B90B */
+    --primary: 45 93% 49%;
+    --primary-foreground: 210 19% 9%;
+
+    /* Secondary Background: #1E2329 */
+    --secondary: 215 16% 14%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Muted: #6F7680 */
+    --muted: 215 16% 14%;
+    --muted-foreground: 210 7% 47%;
+
+    /* Accent - Same as Primary Gold */
+    --accent: 45 93% 49%;
+    --accent-foreground: 210 19% 9%;
+
+    /* Destructive - Danger Red #F6465D */
+    --destructive: 352 90% 62%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders */
+    --border: 210 10% 20%;
+    --input: 215 16% 14%;
+    --ring: 45 93% 49%;
+
+    /* Sidebar */
+    --sidebar-background: 215 16% 14%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 45 93% 49%;
+    --sidebar-primary-foreground: 210 19% 9%;
+    --sidebar-accent: 45 93% 49%;
+    --sidebar-accent-foreground: 210 19% 9%;
+    --sidebar-border: 210 10% 20%;
+    --sidebar-ring: 45 93% 49%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply dark;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  :where(p, span, li, a, button, label, td, th) {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  pre,
+  code {
+    overflow-x: auto;
+    white-space: pre;
+  }
+}
+
+@layer components {
+  /* Primary Gold Button */
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:brightness-110 transition-all font-semibold;
+  }
+
+  /* Secondary Button */
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors;
+  }
+
+  /* Accent Button */
+  .btn-accent {
+    @apply bg-accent text-accent-foreground hover:brightness-110 transition-all font-semibold;
+  }
+
+  /* Blue Withdraw Button */
+  .btn-blue {
+    @apply bg-[#3874F2] text-white hover:bg-[#2d5fc7] transition-colors font-semibold;
+  }
+
+  /* Success Button */
+  .btn-success {
+    @apply bg-[#02C076] text-white hover:bg-[#02a566] transition-colors font-semibold;
+  }
+
+  /* Danger Button */
+  .btn-danger {
+    @apply bg-[#F6465D] text-white hover:bg-[#d93c50] transition-colors font-semibold;
+  }
+
+  /* Card Styling */
+  .card-gradient {
+    @apply bg-card border border-white/5 rounded-xl;
+  }
+
+  /* Premium Card */
+  .premium-card {
+    @apply bg-[#2B3139] border border-white/5 rounded-xl;
+  }
+
+  /* Text gradient */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-[#FFD700] bg-clip-text text-transparent;
+  }
+
+  /* Secondary text color */
+  .text-secondary-custom {
+    color: #A7B0BB;
+  }
+
+  /* Muted text color */
+  .text-muted-custom {
+    color: #6F7680;
+  }
+
+  /* Status Colors */
+  .status-success {
+    color: #02C076;
+  }
+
+  .status-pending {
+    color: #F0B90B;
+  }
+
+  .status-danger {
+    color: #F6465D;
+  }
+
+  /* Background variations */
+  .bg-page {
+    background-color: #12161C;
+  }
+
+  .bg-header {
+    background-color: #1E2329;
+  }
+
+  .bg-card-dark {
+    background-color: #2B3139;
+  }
+}
+
+/* Custom scrollbar for premium feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1E2329;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3C4149;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4C5159;
+}

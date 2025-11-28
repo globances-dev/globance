@@ -1,0 +1,42 @@
+<svg viewBox="0 0 320 70" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Luxury Gold Gradient -->
+    <linearGradient id="hGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F4E4BA"/>
+      <stop offset="25%" stop-color="#D4AF37"/>
+      <stop offset="50%" stop-color="#FFD700"/>
+      <stop offset="75%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#B8860B"/>
+    </linearGradient>
+    
+    <!-- Metallic Shine -->
+    <linearGradient id="hShine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFF8DC"/>
+      <stop offset="50%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#996515"/>
+    </linearGradient>
+    
+    <!-- Text Gold Gradient -->
+    <linearGradient id="textGold" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFE55C"/>
+      <stop offset="50%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#B8860B"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Icon Section -->
+  <g transform="translate(35, 35)">
+    <!-- Outer Ring -->
+    <circle cx="0" cy="0" r="30" fill="none" stroke="url(#hGold)" stroke-width="2.5"/>
+    <circle cx="0" cy="0" r="27" fill="none" stroke="url(#hShine)" stroke-width="1" opacity="0.7"/>
+    
+    <!-- Stylized G -->
+    <path d="M0 -20C-11 -20 -20 -11 -20 0s9 20 20 20c7.8 0 14.6-4.4 17.9-11l-7.2-4.2c-2 3.9-6.1 6.5-10.7 6.5-6.7 0-12.2-5.5-12.2-12.2s5.5-12.2 12.2-12.2c4.2 0 8 2.2 10.1 5.4l7.1-4.4C14 -17.9 7.5 -20 0 -20z" 
+          fill="url(#hGold)"/>
+    <rect x="-1" y="-4" width="17" height="7" rx="1.5" fill="url(#hGold)"/>
+    
+  </g>
+  
+  <!-- GLOBANCE Text -->
+  <text x="85" y="45" font-family="Arial Black, Arial, sans-serif" font-size="32" font-weight="900" fill="url(#textGold)" letter-spacing="4">GLOBANCE</text>
+</svg>

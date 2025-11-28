@@ -1,0 +1,90 @@
+- View notification logs
+- Filter by type (deposit, withdrawal, mining, referral, P2P)
+- Check notification delivery status
+- Trigger test notifications (optional)
+
+---------------------------------------------------
+10) Support & Ticketing (If implemented)
+---------------------------------------------------
+Admin must be able to:
+
+- View support tickets
+- Filter by open / closed
+- Reply to users
+- Close tickets
+- See user profile from ticket
+
+If support system is not implemented, notify me.
+
+---------------------------------------------------
+11) System Settings
+---------------------------------------------------
+Admin should be able to view (or edit):
+
+- Platform fees (withdrawal fee)
+- Minimum deposit
+- Minimum withdrawal
+- Mining percentage rates (read-only unless editing allowed)
+- P2P limits
+- Tatum API status (optional)
+- Cron job last successful run timestamps
+
+---------------------------------------------------
+12) Cron Job Monitoring
+---------------------------------------------------
+Add a simple admin section:
+
+- Last mining payout cron run: timestamp + success/fail
+- Last P2P auto-expiry cron run
+- Next scheduled cron runs
+- Logs of cron operations
+
+---------------------------------------------------
+13) Security Checks
+---------------------------------------------------
+Please ensure:
+
+- No admin endpoint can be accessed by user role
+- Admin JWT cannot be forged
+- Admin actions logged (audit log)
+- Dangerous actions confirm via modal (e.g., “Are you sure you want to release escrow?”)
+- Input validation via Zod or similar everywhere
+- No sensitive data leakage
+- No outdated routes (/dashboard vs /home)
+
+---------------------------------------------------
+14) UX/UI Cleanup
+---------------------------------------------------
+Admin Panel must be clean, dark-mode consistent, and professional:
+
+- Fix spacing
+- Match new platform styling
+- Fix any broken icons or ugly layout from old version
+- Make filtering panels responsive
+
+---------------------------------------------------
+15) Final End-to-End Testing
+---------------------------------------------------
+Please verify real scenarios:
+
+- Admin views a user → checks all history → looks correct
+- Admin sees a deposit → matches user balance
+- Admin sees a withdrawal → can approve/deny
+- Admin sees mining payouts → matches wallet
+- Admin resolves P2P dispute → escrow released
+- Admin views referral tree → matches user dashboard
+
+---------------------------------------------------
+Final Deliverables
+---------------------------------------------------
+Please complete all missing admin sections, fix inconsistencies, and confirm:
+
+✓ Admin Panel is fully functional  
+✓ All modules wired to backend  
+✓ All filtering/searching works  
+✓ All user actions traceable  
+✓ All sensitive routes protected  
+✓ Admin has full visibility over platform  
+✓ No broken UI or missing data  
+
+Let me know when the Admin Panel is 100% production-ready.

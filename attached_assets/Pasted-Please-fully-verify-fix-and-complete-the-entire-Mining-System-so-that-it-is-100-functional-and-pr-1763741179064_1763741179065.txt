@@ -1,0 +1,118 @@
+Please fully verify, fix, and complete the entire Mining System so that it is 100% functional and production-ready.
+
+I need the full mining flow tested end-to-end: package listing, purchase, activation, earnings generation, daily payout logic, wallet updates, and activity logging.
+
+-----------------------------------
+1) Mining Packages (Frontend)
+-----------------------------------
+Please confirm:
+- All mining packages load correctly from the backend.
+- Prices and daily profit percentages match backend values.
+- “Buy” button calls the backend purchase endpoint.
+- Proper error handling for:
+  • insufficient balance
+  • package not found
+  • backend error
+
+-----------------------------------
+2) Mining Package Purchase (Backend)
+-----------------------------------
+Confirm the backend:
+- Subtracts the package price from user's balance.
+- Creates the mining package record in DB.
+- Sets correct fields:
+  • package_id
+  • user_id
+  • start_date
+  • next_payout_date
+  • daily_rate / percentage
+  • status (active)
+- Prevents duplicate purchases if user double-clicks.
+
+-----------------------------------
+3) Daily Mining Earnings Logic
+-----------------------------------
+This is critical. Please verify the payout scheduler.
+
+Mining earnings must:
+- Run every 24 hours per active package.
+- Add earnings to user wallet balance.
+- Add earnings to Total Earned.
+- Add earnings to Today’s Earnings.
+- Log the payout in the mining earnings table.
+- Create a Recent Activity entry.
+- Trigger a notification bell entry.
+
+Please confirm:
+- The scheduler runs consistently.
+- It updates next_payout_date correctly.
+- It does NOT double-pay.
+- It handles multiple packages per user properly.
+
+-----------------------------------
+4) Home Page Integration
+-----------------------------------
+Ensure Home page reflects:
+- Active Mining Packages count
+- Today’s Earnings (correct sum of today’s payouts)
+- Total Earned (correct lifetime earnings)
+- Recent Activity logs mining payouts
+
+Please fix any mismatches between backend values and Home display.
+
+-----------------------------------
+5) Wallet Page Integration
+-----------------------------------
+Mining payouts must appear in:
+- Wallet balance
+- Transaction history
+- Recent Activity
+- Notification Bell
+
+If any of these are missing, please integrate them.
+
+-----------------------------------
+6) Referral Mining Rewards (If enabled)
+-----------------------------------
+If the platform supports mining referral rewards:
+- Level 1, Level 2, Level 3 must get earnings correctly.
+- Today’s earnings + Total Earned must reflect referral earnings.
+- Activity logs must show “Referral mining reward”.
+- Notification bell must show referral reward events.
+
+If referral mining rewards are NOT enabled, confirm they are fully disabled and not causing errors.
+
+-----------------------------------
+7) Package Expiry Logic (If applicable)
+-----------------------------------
+If the mining package has a duration:
+- Confirm that mining stops after expiry.
+- Status changes to expired.
+- No payouts should occur after expiration.
+- Expiration is reflected in the UI.
+
+-----------------------------------
+8) Admin Panel: Mining Management
+-----------------------------------
+Admin must be able to:
+- View all mining packages
+- View all user purchases
+- Search by user ID/email
+- Filter by active, expired, pending payout
+- View mining logs (daily payouts)
+
+If any part is missing, please add it.
+
+-----------------------------------
+9) Error Handling & Validation
+-----------------------------------
+Please ensure:
+- Clean error messages for purchase failures
+- No negative balances
+- Daily scheduler handles edge-cases (cron restarts, downtime)
+- Package cannot payout twice within the same day
+
+-----------------------------------
+10) Full End-to-End Testing
+-----------------------------------
+Please test the entire mining cycle:

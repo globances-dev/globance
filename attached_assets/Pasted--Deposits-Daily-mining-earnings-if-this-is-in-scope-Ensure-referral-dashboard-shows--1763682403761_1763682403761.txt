@@ -1,0 +1,64 @@
+* Deposits
+  * Daily mining earnings (if this is in scope)
+- Ensure referral dashboard shows:
+  * Levels
+  * Counts
+  * Earnings per level
+- Test referral behavior if someone registers without a referral link.
+
+11) P2P Module (if enabled)
+- Test full trade lifecycle:
+  * Create offer
+  * Match trade
+  * Escrow hold
+  * Mark as paid
+  * Release funds
+- Test dispute creation and resolution.
+- Check fiat currency management, price limits and payment methods.
+- If P2P is not meant to be visible to users yet, make sure it’s properly hidden in the UI.
+
+12) Email Notifications & Templates
+- Verify all email templates:
+  * Welcome / registration
+  * Deposit confirmation
+  * Withdrawal confirmation
+  * Mining activation / package purchase (if applicable)
+  * Password reset
+- Ensure there are NO mentions of payment provider names (like NOWPayments) in any user-facing email.
+- Check sender name, subject lines, links and branding.
+
+13) Admin Panel
+- Test admin login and access protection.
+- Check admin functions:
+  * View/search users
+  * View deposits and withdrawals
+  * Approve/reject manual actions (if any)
+  * Manage mining packages and configurations
+- Ensure admin-only routes are not accessible to normal users.
+
+14) Security & Safety Checks
+- Confirm API keys, secrets and webhooks are stored only in environment variables (not in code).
+- Basic checks for:
+  * SQL/NoSQL injection
+  * Cross-site scripting (XSS) in inputs and forms
+  * Unauthorized access to other users’ data by changing IDs in URLs
+  * Rate limiting for login and sensitive actions
+  * Protection of withdraw endpoints (no way to trigger unauthorized withdrawals)
+- Confirm password hashing is used properly.
+- Confirm CORS, HTTPS and cookie/session handling are configured safely.
+
+15) Performance & UX
+- Test page load speed on mobile.
+- Verify layout on different screen sizes.
+- Confirm all texts are up-to-date with my latest requests (hero section, login/register subtitles, no USDT where I asked to remove it, etc.).
+- Make sure there are no obvious visual bugs or overlapping elements.
+
+Deliverables:
+- A short written QA report describing:
+  * What was tested
+  * Bugs or inconsistencies found (with exact steps to reproduce)
+  * Security concerns (if any)
+  * Final verdict: “Ready for real users” or “Not yet, here’s what to fix first”
+- Please also fix any small issues you can directly during the session and clearly list what was fixed.
+
+If any real-fund tests are required, please either use test networks or ask for my permission before using live funds.

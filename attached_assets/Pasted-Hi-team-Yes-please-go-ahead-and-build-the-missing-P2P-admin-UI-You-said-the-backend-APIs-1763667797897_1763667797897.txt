@@ -1,0 +1,172 @@
+Hi team 👋,
+
+Yes, please go ahead and build the missing P2P admin UI.
+
+You said the backend APIs for admin are already ready, so I just need the React admin pages that call those APIs.
+
+Here are the requirements:
+
+
+---
+
+1️⃣ Fiat Currencies & Price Range Management
+
+Create an “Admin → P2P Settings” section with:
+
+Fiat Currencies tab
+
+List of all available fiat currencies (e.g., ETB, KES, NGN, etc.)
+
+For each fiat:
+
+Country name
+
+Currency code (e.g., ETB)
+
+Status: Active / Inactive (toggle)
+
+
+Admin can:
+
+Add new fiat currency
+
+Edit existing one
+
+Deactivate a fiat so users can’t use it anymore
+
+
+
+Price Range tab
+
+For each fiat currency, admin can set:
+
+Min price per 1 USDT
+
+Max price per 1 USDT
+
+
+Example for ETB:
+
+Min: 170 ETB
+
+Max: 180 ETB
+
+
+These ranges must be enforced when users create offers.
+
+
+
+
+---
+
+2️⃣ Payment Methods Management
+
+Inside the same P2P admin area, add a “Payment Methods” tab:
+
+Admin can define approved payment methods per country / fiat, for example:
+
+Ethiopia / ETB:
+
+Bank Transfer → CBE, Awash Bank, Dashen Bank
+
+Mobile Money → CBE Birr, TeleBirr, M-Pesa
+
+
+
+Users must only be able to select from this approved list when adding their payment methods or creating offers.
+
+Admin can:
+
+Add / edit / deactivate specific providers
+
+Group them by Type (Bank Transfer, Mobile Money, Other)
+
+
+
+
+---
+
+3️⃣ Dispute Resolution Dashboard
+
+Create an “Admin → P2P Disputes” page where:
+
+Admin sees a table of all trades with disputes:
+
+Trade ID
+
+Buyer
+
+Seller
+
+Amount & fiat
+
+Status (Pending, Resolved, Cancelled)
+
+Created at
+
+
+When admin clicks on a trade:
+
+Show full trade details
+
+Show chat/messages between buyer and seller (if available)
+
+Show payment method used
+
+Show escrow status
+
+
+Admin actions:
+
+Release escrow to Buyer
+
+Release escrow back to Seller
+
+Mark dispute as resolved / cancelled
+
+
+These actions should call the existing backend APIs you already implemented for escrow and disputes.
+
+
+
+---
+
+4️⃣ P2P Overview / Monitoring (simple version)
+
+Add a simple “Admin → P2P Overview” page with:
+
+Total number of active offers
+
+Total trades today / last 7 days
+
+Number of open disputes
+
+Total P2P volume (USDT) in last 7 days
+
+
+(This can be basic – just enough to monitor the system.)
+
+
+---
+
+5️⃣ Business Rules to Respect
+
+Please make sure the UI respects these business rules:
+
+Escrow style P2P like Binance (funds are locked until release).
+
+Admin sets price range per fiat – users cannot go outside that range.
+
+Users select banks / mobile money only from my approved list.
+
+No trade limits from platform side (users can trade any amount within their balance and price range).
+
+No extra platform fee on P2P trades for now (0% fee).
+
+
+
+---
+
+Once you build these admin pages, I’ll be able to fully manage the P2P system (fiats, banks, prices, and disputes) from the dashboard.
+
+Thank you! 🚀

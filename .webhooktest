@@ -1,0 +1,18 @@
+# NOWPayments Webhook Test Payload
+# Use this to manually test your webhook endpoint
+
+{
+  "payment_id": 9999999999,
+  "payment_status": "finished",
+  "pay_address": "TAm9k5awnNuZiEcXkzvdiWK11qsLrYL2mz",
+  "pay_amount": 15.5,
+  "actually_paid": 15.5,
+  "pay_currency": "usdttrc20",
+  "order_id": null,
+  "order_description": "Test deposit",
+  "payin_hash": "test_transaction_hash_123456789",
+  "outcome_amount": 15.5,
+  "outcome_currency": "usdttrc20",
+  "created_at": "2025-11-24T22:00:00Z",
+  "updated_at": "2025-11-24T22:05:00Z"
+}

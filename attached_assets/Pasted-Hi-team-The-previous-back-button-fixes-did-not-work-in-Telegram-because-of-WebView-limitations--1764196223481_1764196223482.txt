@@ -1,0 +1,91 @@
+Hi team 👋,
+The previous back button fixes did not work in Telegram because of WebView limitations. Please implement this FINAL Telegram-approved fix that uses the official Telegram WebApp API.
+This method is known to work across all Mini Apps.
+
+
+---
+
+🔧 1️⃣ Insert this script at the VERY TOP of index.html (before React, before everything):
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const tg = window.Telegram?.WebApp;
+
+    if (!tg) {
+        console.log("[DEBUG] Telegram WebApp object not detected.");
+        return;
+    }
+
+    console.log("[DEBUG] Telegram WebApp detected — enabling back button fix.");
+
+    // Show Telegram's built-in back button
+    tg.BackButton.show();
+
+    // When Telegram back button is clicked → blur input instead of navigating
+    tg.BackButton.onClick(() => {
+        const active = document.activeElement;
+
+        if (active && ["INPUT", "TEXTAREA"].includes(active.tagName)) {
+            console.log("[DEBUG] Telegram back button: blur input");
+            active.blur();
+            return;
+        }
+
+        // Only navigate back if keyboard is already closed
+        console.log("[DEBUG] Telegram back button: navigate back");
+        window.history.back();
+    });
+
+    // OPTIONAL: make hardware back simulate Telegram back button
+    window.addEventListener("popstate", () => {
+        const active = document.activeElement;
+
+        if (active && ["INPUT", "TEXTAREA"].includes(active.tagName)) {
+            console.log("[DEBUG] Hardware back triggered → blur input");
+            active.blur();
+            history.pushState(null, null, "");
+            return;
+        }
+
+        // Telegram back button handles navigation
+        console.log("[DEBUG] Hardware back: deferring to Telegram back behavior");
+    });
+
+    // Create initial history state
+    history.pushState(null, null, "");
+});
+</script>
+
+
+---
+
+📌 EXPECTED BEHAVIOR (Guaranteed in Telegram WebApp):
+
+✔ First back press → input loses focus → keyboard hides
+
+✔ Second back press → page navigates back normally
+
+✔ Works with Telegram back button at the top
+
+✔ Works with Android hardware back (redirected)
+
+✔ No issues in Chrome/Safari
+
+
+---
+
+📌 Please confirm after implementing:
+
+1. Script loaded before React
+
+
+2. [DEBUG] Telegram WebApp detected appears
+
+
+3. Telegram’s own back button becomes visible
+
+
+4. Pressing back hides keyboard first
+
+
+5. Second press navigates back

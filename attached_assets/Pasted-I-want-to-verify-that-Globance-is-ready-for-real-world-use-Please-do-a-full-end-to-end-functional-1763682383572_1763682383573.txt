@@ -1,0 +1,81 @@
+I want to verify that Globance is ready for real-world use. 
+Please do a full end-to-end functionality and production-readiness check, from the simplest features to the most advanced.
+
+Check ALL of the following modules and flows:
+
+1) Environment & Routing
+- Confirm that after login and registration users are redirected to /home (not /dashboard).
+- Verify all main routes work: /, /home, /login, /register, /profile, /wallet, /mining, /p2p, /referrals, /support, admin routes, etc.
+- Make sure there are no dead links or 404s in the navigation.
+
+2) Authentication & Registration
+- Test email/password registration (including password rules).
+- Test login with valid and invalid credentials.
+- Verify email verification flow works end-to-end (if implemented).
+- Confirm that referral links like:
+  https://globance.app/register?ref=XXXX
+  automatically prefill the referral code field and correctly attach the sponsor.
+- Check the “Remember me” option works correctly.
+- Confirm logout clears the session and redirects properly.
+
+3) Forgot Password / Reset Password
+- Finish and test the forgot-password flow:
+  * Click “Forgot password?”
+  * Request reset email
+  * Receive email with secure one-time token link
+  * Open reset page, set new password
+  * Login with the new password; old password must stop working
+- Ensure the routes in App.tsx are correctly wired and the backend endpoints store/validate reset tokens securely and with expiration.
+
+4) Profile Page
+- Verify full name, email, user ID and join date are loaded correctly (no “Invalid Date”).
+- Test editing profile data (if allowed).
+- Make sure the new profile design looks correct on mobile and desktop.
+- Check the referral section: link generation, copy button, and “View Referral Dashboard” navigation.
+
+5) Notification Bell
+- Implement and test a basic notification system:
+  * Deposit success
+  * Withdrawal request/success
+  * Mining package purchase
+  * Referral reward
+- When the bell is clicked, show a dropdown or notifications page with these items.
+- Show unread indicator/badge if applicable.
+- Make sure clicking a notification works or at least marks it as read.
+
+6) Wallet & Balances
+- Confirm total balance, today’s earnings, total earned and active packages are calculated consistently across all pages (home, wallet, mining, profile).
+- Test behavior when balance is 0 and when it has funds.
+- Check transaction history: dates, amounts, networks (TRC20/BEP20) and statuses.
+
+7) Deposits
+- Verify deposit flow end-to-end for TRC20 and BEP20:
+  * Generate deposit address
+  * Send a test transaction
+  * Confirm the webhook or processing logic credits the user automatically within the expected time
+- Make sure the UI messages are correct, and NO payment-provider brand names are shown to the user.
+- Confirm minimum deposit rules and error messages work.
+
+8) Withdrawals
+- Test withdrawal with:
+  * Valid address and amount
+  * Invalid address
+  * Below minimum amount
+  * More than available balance
+- Confirm fees and minimum withdrawal values are applied correctly.
+- Ensure successful withdrawals are reflected in balance and shown in history.
+- Make sure warning text about double-checking the address is shown, but no payment-provider brand names appear.
+
+9) Mining System (Cloud Mining Packages)
+- Test package list display and purchase flow.
+- After purchasing a package:
+  * Mining should become “Active”
+  * Daily earnings should be generated correctly
+  * Earnings should stop when the package expires (if there is a duration)
+- Test multiple active packages and ensure totals are correct.
+- Confirm that the “Earn Daily / Automated Cloud Mining” texts match actual behavior.
+
+10) Referral System (Multi-level)
+- Verify referral tracking:
+  * User A refers B, B refers C, C refers D.
+- Confirm direct and indirect reward percentages (10%, 3%, 2% or as configured) are applied correctly on:

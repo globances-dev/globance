@@ -1,0 +1,108 @@
+Hi, I need you to fully audit and fix my production deployment of my app Globance (cloud mining platform) hosted at https://globance.app.
+1. Context
+•	Tech stack: Next.js frontend + Node/Express backend running on Replit.
+•	Database: I removed Supabase; now I want both development and production databases to run on Replit Postgres only.
+•	There was previous work to move things off Supabase and to add a local Postgres DB + migrations + cron jobs.
+Since that change, many things in production are broken.
+________________________________________
+2. Current Problems (Production)
+Please reproduce these issues directly on https://globance.app:
+1.	Packages – “Package not found”
+o	Go to: Home → Mining Packages → Activate Bronze (or any package).
+o	Enter an amount (e.g. 100 USDT) and click Buy Package.
+o	The UI shows:
+Purchase Failed – Package not found
+o	The package cards are visible on the page, but the backend can’t find them.
+2.	Wallet page black screen
+o	Go to https://globance.app/wallet.
+o	The page sometimes loads as a full blank/black screen and nothing renders.
+3.	Wallet history 404
+o	Go to https://globance.app/wallet/history.
+o	It shows a 404 – Page not found instead of the wallet history.
+4.	Admin panel not opening
+o	Go to https://globance.app/admin.
+o	The page is just a blank/black screen.
+o	My previous admin account no longer works and I don’t see any way to create or log in as admin.
+5.	Referral program – Code shows “N/A”
+o	Go to Profile → Referral Program.
+o	It shows Your Referral Code: N/A and referral link with ref=N/A.
+o	I need the correct referral code and link generated for the logged-in user.
+6.	Mining earnings vs dashboard “Today” tile
+o	The daily mining cron is running and DOES increase user total balance and total earned.
+o	Mining rewards appear in Recent Activity as “Mining Reward” records.
+o	But the “Today” earnings tile on the home dashboard often shows $0.00 for the same day.
+o	I need “Today” to correctly sum all earnings for the current day.
+7.	Withdrawals – DB schema issues (Replit Postgres)
+o	Previously, when withdrawing, I saw errors like:
+“column amount_usdt of relation withdrawals does not exist”
+or “Could not find the amount_usdt column of withdrawals in the schema cache”
+o	You added automatic withdrawals table creation and a manual-admin withdrawal system, but now that I’ve removed Supabase and want production DB purely on Replit, the withdrawals flow may still be broken and needs to be verified end-to-end:
+	User submits withdrawal (balance deducted + record created as pending)
+	Admin sees it in admin panel
+	Admin marks as completed/rejected
+	User sees correct status and history in wallet & activity.
+________________________________________
+3. What I Need You to Do
+Please treat this as a full production review + fix:
+1.	Confirm and fix database configuration
+o	Ensure the app is using Replit Postgres for production, not any leftover Supabase configs.
+o	Verify DATABASE_URL / connection string and any environment variables are correct for production.
+o	Remove or disable any remaining Supabase-specific code that could cause schema cache errors.
+2.	Run and fix all migrations for Replit Postgres (production)
+o	Inspect the migrations folder and ensure every table needed is present in the Replit DB, including at least:
+	users
+	wallets / wallet_balances
+	mining_packages
+	mining_purchases (or equivalent)
+	earnings_transactions
+	referral_bonus_transactions
+	withdrawals
+	settings
+	cron_logs
+o	Make sure required columns exist (for example in withdrawals table: id, user_id, amount_usdt, network, address, status, fee_usdt, created_at, updated_at, etc.).
+o	Fix any migrations that still refer to old column names (like transaction_type or bonus_type instead of type).
+3.	Seed and validate core data
+o	Ensure mining_packages table in Replit DB contains the Bronze, Silver, Gold, etc. packages with correct IDs, min investment, daily percentage, duration, etc.
+o	Make sure there is at least one admin user:
+	Create an admin account for me:
+	Email: globances@gmail.com
+	Password: Buzee18$ (you can change it in code later if needed)
+	Confirm that I can log in and access /admin.
+4.	Fix backend endpoints
+o	Verify and fix these routes (or their equivalents):
+	POST /api/mining/purchase – should correctly find package by ID, validate balance, create purchase & wallet transaction.
+	GET /api/wallet – should return wallet balances and recent activity without throwing errors.
+	GET /api/wallet/history – must exist and return wallet transaction history.
+	GET /api/referrals/summary (or whatever route powers referral page) – must return correct referral code/link and stats.
+	Admin endpoints for withdrawals, mining control, and settings.
+o	Add robust error logging for each of these so that if anything fails I can see actionable messages in the server console.
+5.	Fix frontend issues
+o	Prevent the blank/black screen on /wallet and /admin (handle errors instead of crashing React).
+o	Make sure /wallet/history is routed correctly in the Next.js router.
+o	Ensure referral page reads the correct referral code and link from the API.
+o	Confirm the “Today” earnings tile calculates from today’s earnings_transactions for the logged-in user.
+6.	Verify the whole flow in production
+After fixes, please test on the deployed app:
+o	Register a test user.
+o	Deposit test balance (you can simulate via admin/DB if needed).
+o	Buy a package – confirm success, record in DB, appears on dashboard.
+o	Wait or use the test mining endpoint to generate earnings – confirm:
+	Total balance increases
+	“Today” tile shows today’s earnings
+	Recent Activity shows mining rewards.
+o	Create a withdrawal request, then process it via admin:
+	Pending → Completed / Rejected
+	Wallet balances and activity reflect this correctly.
+________________________________________
+4. Deliverables
+Please provide:
+1.	A summary of what was broken (DB config, missing tables/columns, incorrect queries, routing issues, etc.).
+2.	A list of changes you made in the codebase (files & key functions).
+3.	Instructions for:
+o	How I can create additional admin accounts in the future.
+o	How to add/edit mining packages via DB or admin panel.
+o	How to run any database migrations or tests on Replit for production.
+My main goal:
+Everything (auth, admin, packages, mining, wallet, referrals, withdrawals) should run only on Replit with Replit Postgres as the production database, with no Supabase dependency.
+Thank you!
+

@@ -1,0 +1,100 @@
+Please fully review, fix, and complete the entire email system for Globance so it’s production-ready and consistent with the platform’s purpose and branding.
+
+I want all emails to:
+- Work correctly (sent + delivered)
+- Use the correct text and links
+- Match the Globance brand (cloud mining only)
+- Have NO mention of P2P or NOWPayments anywhere in user-facing content
+
+Please go through the following:
+
+--------------------------------
+1) Email Infrastructure Check
+--------------------------------
+- Confirm which email provider is used (Resend, SendGrid, SMTP, etc.).
+- Verify environment variables are correctly configured (API key, sender email, sender name).
+- Ensure all email sending functions have proper error handling and logging.
+- Make sure emails are not sent in development/test mode to wrong addresses.
+
+--------------------------------
+2) Branding & Content (VERY IMPORTANT)
+--------------------------------
+Please update and verify ALL email templates so they match my current branding:
+
+Platform brand: Globance  
+Focus: Cloud mining & daily earnings  
+NOT a P2P trading platform on the user-facing side.
+
+Required changes:
+- Remove all mentions of “NOWPayments” from ALL email templates.
+- Remove or change any text that says “Globance cloud mining and P2P trading”.  
+  Use text like: “Globance cloud mining platform” or “Globance automated cloud mining”.
+- Make sure wording is simple, professional, and consistent.
+
+Key templates to review/update:
+- Registration / Welcome email
+- Email verification email (if separate)
+- Deposit confirmation email
+- Withdrawal confirmation email
+- Mining package purchase confirmation
+- Daily mining earnings notification (if exists)
+- Referral reward notification
+- P2P-related emails (only if truly needed; otherwise keep them minimal)
+- Password reset email
+
+--------------------------------
+3) Trigger Events & Coverage
+--------------------------------
+Please confirm that emails are sent on the following events, and fix any missing ones:
+
+1. Registration
+   - Welcome email sent after successful registration.
+   - If email verification exists: verification link must work properly.
+
+2. Password Reset
+   - Forgot password → reset email sent with secure token link.
+   - Reset link opens correct “Create New Password” page.
+   - Token expiry is enforced.
+   - After reset, old password no longer works.
+
+3. Deposit
+   - Deposit confirmation email sent after deposit is confirmed on-chain/webhook.
+   - Email includes amount, currency, date/time, and last 4 chars of transaction/hash.
+
+4. Withdrawal
+   - Withdrawal request email (optional).
+   - Withdrawal success email.
+   - Withdrawal failed email (if blockchain or admin reject).
+   - Emails must NOT include technical/internal errors, just user-friendly explanation.
+
+5. Mining
+   - Mining package purchase confirmation email.
+   - Optional: Daily mining summary email (“Your mining earned X today”).
+
+6. Referral
+   - Optional but preferred: “You earned a referral reward: +X USDT”.
+
+7. P2P (only if enabled)
+   - Trade started
+   - Payment marked as sent
+   - Trade completed
+   - Dispute opened/resolved
+
+If some of these are not implemented, please tell me which are missing and which you recommend as a minimum for MVP.
+
+--------------------------------
+4) Links & Routing
+--------------------------------
+For every email, please confirm:
+- All buttons/links go to the correct pages:
+  • Login
+  • Home (/home)
+  • Reset password page
+  • Support/Help
+- No links go to old routes (like /dashboard if we are using /home).
+- All URLs use the correct production domain (globance.app or globance.org as configured).
+- Verification and reset links are single-use and expire correctly.
+
+--------------------------------
+5) Layout, Language, and Professional Look
+--------------------------------

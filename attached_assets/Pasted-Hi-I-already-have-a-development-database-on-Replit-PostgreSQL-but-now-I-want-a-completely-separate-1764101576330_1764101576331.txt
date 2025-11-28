@@ -1,0 +1,148 @@
+Hi, I already have a development database on Replit PostgreSQL, but now I want a completely separate production database, also inside Replit.
+
+Please do the following:
+
+1️⃣ Create a NEW Production PostgreSQL Database
+
+I want a dedicated production PostgreSQL database inside Replit.
+
+Please:
+
+Create a new PostgreSQL database instance for production
+
+Provide me with the connection string (DATABASE_URL)
+
+Add it to Replit secrets as:
+
+DATABASE_URL_PRODUCTION
+
+2️⃣ Split My Environment Into Two Modes
+
+I want two modes:
+
+Development Mode
+
+Uses development DB (already exists)
+
+Production Mode
+
+Uses new production DB
+
+Please update the code so the server can switch automatically based on:
+
+NODE_ENV=development
+NODE_ENV=production
+
+3️⃣ Migrate All Tables Into Production Database
+
+Please copy/create all required tables in the new production DB:
+
+users
+
+wallets / user_balance
+
+mining_packages
+
+active_purchases
+
+earnings_transactions
+
+referral_bonus_transactions
+
+deposits
+
+withdrawals
+
+activity_log
+
+cron_logs
+
+any extra tables needed (P2P if still active)
+
+Make sure every table contains the correct columns so the backend won’t break.
+
+4️⃣ Connect the Live Platform to the Production Database
+
+Please update the deployment settings so that:
+
+The live public URL uses DATABASE_URL_PRODUCTION
+
+The Replit preview mode uses the development DB
+
+This ensures development and production are fully separated.
+
+5️⃣ Verify Full Production Functionality
+
+Please test the entire system using the new production DB:
+
+User Features
+
+Register
+
+Login
+
+Deposit
+
+Buy mining package
+
+Cron mining rewards
+
+Referral system
+
+Withdrawal request
+
+Wallet → balance & history
+
+Activity feed
+
+Today earnings
+
+Admin Features
+
+Admin login
+
+Admin dashboard
+
+View users
+
+Approve withdrawals
+
+View deposits
+
+Mining purchases
+
+Referral stats
+
+Settings (Telegram/WhatsApp)
+
+6️⃣ Replace ANY leftover references
+
+If ANY part of the code still references:
+
+Supabase
+
+Old schema
+
+Old database
+
+Missing tables
+
+Please convert everything to use Replit PostgreSQL correctly.
+
+7️⃣ Final Delivery
+
+When it is done, please provide:
+
+Confirmation that production DB is live
+
+Connection URL (masked)
+
+List of tables created
+
+Summary of code changes for production mode
+
+Confirmation that all features work end-to-end
+
+This is important because I need my platform to run completely in Replit production, without using Supabase at all.
+
+Thank you!

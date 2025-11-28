@@ -1,0 +1,124 @@
+Please fully verify, fix, and complete the entire Admin Panel so that it becomes 100% functional, secure, and production-ready.
+
+I want the Admin Panel to give full control over all platform activities: users, deposits, withdrawals, mining, P2P, referrals, notifications, support tickets, cron operations, and system settings.
+
+Here is everything that must be implemented, checked, or completed:
+
+---------------------------------------------------
+1) Admin Authentication & Access Control
+---------------------------------------------------
+- Admin login must be protected with admin middleware.
+- Non-admins must NEVER be able to access admin routes (frontend & backend).
+- Protect all admin API endpoints.
+- Add rate-limit for admin login.
+
+---------------------------------------------------
+2) Admin Dashboard Overview
+---------------------------------------------------
+The main admin homepage must show key platform analytics:
+
+- Total Users
+- Total Active Miners
+- Total Deposits (last 24h / last 7 days)
+- Total Withdrawals (same)
+- Total Mining Payouts (same)
+- Referral Rewards Distributed
+- P2P Trades (active, completed, disputed)
+- System health indicators (cron job status)
+
+---------------------------------------------------
+3) User Management
+---------------------------------------------------
+Admin must be able to:
+
+- View all users
+- Search by email, ID, or referral code
+- Filter by join date, balance, status, etc.
+- View user details:
+  • Email, full name
+  • Referral chain (upline / downline)
+  • Mining packages
+  • Balances
+  • Deposits
+  • Withdrawals
+  • P2P trades
+  • Activity logs
+- Suspend / unsuspend user (if needed)
+- Reset user password manually (optional)
+
+---------------------------------------------------
+4) Deposit Monitoring (Already Implemented)
+---------------------------------------------------
+Verify all functions:
+
+- View all deposits
+- Filter by network, user, amount, status, date
+- View deposit details
+- Confirm callback logs
+- Check webhook success/failure logs
+
+---------------------------------------------------
+5) Withdrawal Management (Critical)
+---------------------------------------------------
+Ensure admin can:
+
+- View all withdrawals
+- Filter by:
+  • status (pending, processing, completed, failed)
+  • network (TRC20 / BEP20)
+  • user
+  • date range
+- View withdrawal details (address, tx hash)
+- Approve / reject withdrawals (if manual)
+- Retry failed withdrawals (optional)
+- Ensure backend enforces admin-only control
+
+---------------------------------------------------
+6) Mining Management (Partially Implemented)
+---------------------------------------------------
+You already built MiningMonitoring — please ensure:
+
+Admin can see:
+- All mining package purchases
+- Package type, rate, amount
+- Start date, next payout date, expiry date
+- Total earned
+- Mining logs (daily payouts)
+
+Admin should be able to:
+- Filter by user, package, active/expired
+- View mining payout history
+- Manually trigger test mining payout (already exists)
+
+---------------------------------------------------
+7) Referral Management
+---------------------------------------------------
+Admin must be able to:
+
+- View referral trees (L1 → L2 → L3)
+- Search by user email or ID
+- View referral earnings
+- Filter by date, level, earnings type (deposit/mining)
+- Fix incorrect referral assignments (optional)
+
+---------------------------------------------------
+8) P2P Management (Mostly Completed)
+---------------------------------------------------
+Please ensure:
+
+Admin can:
+- View all trades
+- Filter by pending, payment_sent, released, cancelled, dispute
+- View full trade details (offer, price, buyer/seller, chat logs)
+- Resolve disputes (already implemented)
+- Manage fiat currencies
+- Manage payment methods
+- View P2P statistics
+
+Remaining items:
+- Ensure auto-expiry cron (pending trades after 30 min) is visible in admin metrics.
+
+---------------------------------------------------
+9) Notifications Management
+---------------------------------------------------
+Admin should be able to:

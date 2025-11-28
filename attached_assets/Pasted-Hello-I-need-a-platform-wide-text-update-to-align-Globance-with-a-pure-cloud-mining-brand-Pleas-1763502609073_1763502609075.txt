@@ -1,0 +1,59 @@
+Hello! I need a platform-wide text update to align Globance with a pure cloud-mining brand.
+
+Please apply the following changes across the entire frontend and any consumer-visible text in the codebase:
+
+────────────────────────────────────────
+1. REPLACE ALL INSTANCES OF “Mining Package”, “Mining Power”, “Package”, or “Package Price” WITH:
+
+→ “Minimum Investment”
+
+This includes but is not limited to:
+- Packages page
+- Home page package preview cards
+- Buy modal
+- Dashboard (active packages section)
+- Any tooltip, description, or modal mentioning package cost
+- Referral descriptions mentioning “package purchase”
+- Any place showing the tier price (Bronze, Silver, Gold, Platinum, Diamond, Legendary)
+
+Example conversions:
+• “Mining Package: 10 USDT” → “Minimum Investment: 10 USDT”
+• “Buy Package” → “Make Investment”
+• “6 mining packages available” → “6 investment plans available”
+• “Your active packages” → “Your active investments”
+
+DO NOT change the tier names (Bronze, Silver, etc.) — only replace the wording around them.
+
+────────────────────────────────────────
+2. UPDATE ALL WITHDRAWAL-RELATED TEXT TO REMOVE “Admin Approval” OR “Admin Verified”
+
+Replace the entire withdrawal messaging with a blockchain-forward version:
+
+New phrasing to use:
+- “Blockchain-authenticated withdrawals”
+- “Secure on-chain verification”
+- “Fast USDT withdrawals to your wallet”
+- “Withdrawals are authenticated automatically via blockchain”
+- “Automated processing — no manual review required”
+
+Examples of required replacements:
+• “Admin approval required” → “Blockchain-authenticated processing”
+• “Admin-verified withdrawals” → “Secure on-chain verification”
+• “Withdrawals usually processed within 24 hours” → “Withdrawals processed automatically through blockchain validation”
+• “Admin approved processing” → “Automated blockchain-authenticated processing”
+
+Also update any info boxes, warnings, tooltips, FAQ sections, banners, or modals to remove admin language entirely.
+
+────────────────────────────────────────
+3. Ensure consistent messaging across all pages
+
+After replacing the above:
+- Re-scan the app for any leftover references to “package”, “power”, “admin approval”, or “manual review”
+- Replace them with the new terms to maintain 100% mining-focused, professional language
+
+────────────────────────────────────────
+4. No backend logic changes needed. 
+This is a CONTENT-ONLY update (text/UI copy), not API or functionality changes.
+
+────────────────────────────────────────
+Please confirm when all these replacements are completed and that no admin-approval text remains anywhere in the UI. 

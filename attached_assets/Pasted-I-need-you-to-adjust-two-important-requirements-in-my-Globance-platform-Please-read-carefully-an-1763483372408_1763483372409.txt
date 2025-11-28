@@ -1,0 +1,113 @@
+I need you to adjust two important requirements in my Globance platform.  
+Please read carefully and apply EXACTLY what I ask:
+
+-----------------------------------------
+# 1️⃣ MINIMUM DEPOSIT MUST BE 5 USDT
+-----------------------------------------
+The current implementation sets minimum deposit to 20 USDT because of NOWPayments defaults.  
+I do NOT want this.
+
+Please override all logic so:
+
+✔️ Minimum deposit amount = **5 USDT**  
+✔️ Reject deposits ONLY if below 5 USDT  
+✔️ Do NOT rely on NOWPayments minimums  
+✔️ The check should happen inside **my own backend**:
+
+POST /api/deposits/create
+POST /api/deposits/callback
+
+Because NOWPayments accepts ANY amount on the blockchain, and only their “invoice” product has limits.  
+We are using the **payment API**, NOT invoices, therefore no limitation.
+
+-----------------------------------------
+# 2️⃣ EVERY USER MUST HAVE THEIR OWN PERMANENT DEPOSIT ADDRESS
+-----------------------------------------
+You told me NOWPayments cannot create permanent addresses.
+
+That is incorrect — because we must use the NOWPayments endpoint:
+**POST /v1/subscription/** or **POST /v1/payment** with "fixed_rate": false  
+but I do NOT want invoice-style payments.
+
+I want this behavior:
+
+✔️ When a user registers, we call NOWPayments:
+   - network: TRX (TRC20)
+   - currency: USDT
+   - address creation API (simple “deposit address” endpoint)
+
+✔️ Store ONE address per user in table `deposit_addresses`
+✔️ Reuse the same address for all future deposits
+✔️ Webhook should detect the user using provider_payment_id or the address
+
+If NOWPayments truly cannot generate permanent addresses, then do this fallback solution:
+
+-----------------------------------------
+# 2A️⃣ PERMANENT ADDRESS VIA MY OWN SYSTEM (IF NEEDED)
+-----------------------------------------
+If NOWPayments cannot provide permanent deposit addresses:
+
+Then implement THIS system:
+
+1. When user registers:
+   ✔️ Generate a random internal deposit ID (UUID)
+   ✔️ Store it in `deposit_addresses`
+   ✔️ Create a NOWPayments payment link with “pending” status
+   ✔️ Do NOT expire this payment link
+   ✔️ Extract the deposit_address returned by NOWPayments
+   ✔️ Store that in Supabase
+   ✔️ Use it as the user’s permanent address
+
+2. When user wants to deposit:
+   ✔️ Show the SAME saved address from Supabase
+   ✔️ Do NOT create a new address again
+
+3. When webhook arrives:
+   ✔️ Match the incoming transaction by address, NOT payment ID
+
+This creates permanent deposit addresses correctly.
+
+-----------------------------------------
+# 3️⃣ DO NOT OVERRIDE MY REQUIREMENTS
+-----------------------------------------
+My requirements are final:
+
+🔹 Minimum deposit = **5 USDT**, not 20  
+🔹 Unique permanent deposit address for each user  
+🔹 Webhook must link deposit → user by address  
+🔹 No invoice system, no temporary addresses  
+🔹 No redirects, no expiring links  
+
+-----------------------------------------
+# 4️⃣ PLEASE UPDATE MY EXISTING BACKEND
+-----------------------------------------
+Apply these changes to the existing backend code in my GitHub repo:
+
+https://github.com/globances-dev/globance-staging
+
+Update routes:
+
+✓ server/routes/deposits.ts  
+✓ server/routes/webhook.ts  
+✓ server/routes/wallet.ts  
+✓ server/utils/nowpayments.ts  
+
+And Supabase tables:
+
+✓ deposit_addresses  
+✓ deposits  
+
+-----------------------------------------
+# 5️⃣ WHAT I EXPECT FROM YOU
+-----------------------------------------
+After implementing:
+
+✔️ A user registers → instantly gets TRC20 permanent deposit address  
+✔️ User sees one address forever  
+✔️ Any amount >= 5 USDT is accepted  
+✔️ Webhook detects deposit → credits user balance  
+✔️ No new address generated for every deposit  
+✔️ No minimum 20 USDT restriction  
+✔️ Entire backend logic updated and working in Replit
+
+Please begin implementing this now.

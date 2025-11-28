@@ -1,0 +1,82 @@
+// Create deposit record
+    // Note: UNIQUE constraint on provider_payment_id prevents duplicate inserts
+    const { data: deposit, error: depositError } = await supabase
+      .from('deposits')
+      .insert([
+        {
+          user_id: addressRecord.user_id,
+          address_id: addressRecord.id,
+          network: addressRecord.network,
+          amount,
+          txid: (payload as any).payin_hash  payload.payment_id.toString(),
+          provider: 'nowpayments',
+          provider_payment_id: payload.payment_id.toString(),
+          status: 'completed',
+        },
+      ])
+      .select()
+      .maybeSingle();
+
+    // Handle unique constraint violation (duplicate payment ID)
+    if (depositError) {
+      if (depositError.code === '23505') {
+        // Duplicate key violation - payment already processed
+        console.log(`Duplicate deposit detected (unique constraint): ${payload.payment_id}`);
+        return res.json({ success: true, message: 'Deposit already processed' });
+      }
+      console.error('Error creating deposit:', depositError);
+      return res.status(500).json({ error: 'Failed to create deposit' });
+    }
+
+    if (!deposit) {
+      console.error('Deposit creation returned no data');
+      return res.status(500).json({ error: 'Failed to create deposit' });
+    }
+
+    // Credit wallet
+    const { data: wallet } = await supabase
+      .from('wallets')
+      .select('usdt_balance')
+      .eq('user_id', addressRecord.user_id)
+      .maybeSingle();
+
+    if (wallet) {
+      await supabase
+        .from('wallets')
+        .update({ usdt_balance: (wallet.usdt_balance  0) + amount })
+        .eq('user_id', addressRecord.user_id);
+    } else {
+      console.error(Wallet not found for user ${addressRecord.user_id});
+      return res.status(500).json({ error: 'Wallet not found' });
+    }
+
+    // Send confirmation email
+    if (user?.email) {
+      await sendDepositConfirmationEmail(user.email, amount, addressRecord.network);
+    }
+
+    // Log to audit (use null admin_id since this is an automated action)
+    await supabase.from('audit_logs').insert([
+      {
+        admin_id: null,
+        action: 'deposit_confirmed',
+        resource_type: 'deposit',
+        resource_id: deposit?.id,
+        details: { 
+          amount, 
+          network: addressRecord.network, 
+          provider_payment_id: payload.payment_id,
+          user_id: addressRecord.user_id 
+        },
+      },
+    ]);
+
+    console.log(Deposit confirmed: ${amount} USDT to user ${addressRecord.user_id});
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Webhook error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+export default router;

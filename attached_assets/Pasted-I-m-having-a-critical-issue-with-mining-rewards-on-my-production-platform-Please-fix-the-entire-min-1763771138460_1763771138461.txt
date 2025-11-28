@@ -1,0 +1,136 @@
+I’m having a critical issue with mining rewards on my production platform. Please fix the entire mining reward recording + activity logging flow end-to-end. Below are the exact problems and what I need you to do:
+
+🚨 PROBLEMS TO FIX
+
+Mining rewards are increasing the user’s balance, but
+
+“Today” earnings remain $0.00
+
+“Recent Activity” does not show any mining reward transactions
+
+Only package purchases appear
+
+You told me the endpoint returned “API endpoint not found.”
+That means the mining reward transaction API path is wrong or missing.
+
+Cron runs every day at 21:00 UTC, but still
+
+No record in earnings_transactions
+
+No record shown in frontend
+
+✅ WHAT YOU MUST FIX
+1. Verify and fix ALL mining APIs
+
+I need you to find the real endpoint paths and correct them:
+
+/api/mining/run-daily-earnings
+
+/api/mining/run-daily-earnings-test
+
+/api/mining/record-transaction
+
+Any other mining-related route
+
+Make sure they exist in:
+pages/api/mining/
+
+If they don’t exist, create them.
+
+2. Force mining.ts to create a Supabase transaction record directly
+
+Inside mining.ts, at the moment mining reward is calculated, do this:
+
+Insert directly into Supabase table:
+earnings_transactions
+
+Fields required:
+
+id
+
+user_id
+
+amount
+
+type = "mining_reward"
+
+created_at = NOW()
+
+Don’t use any broken utility functions.
+Insert directly with the working Supabase client.
+
+I want a guaranteed insert every time mining runs.
+
+3. Fix the “Today” earnings calculation
+
+Frontend checks today’s earnings from:
+
+/api/earnings/today
+
+/api/transactions/today
+
+or similar route
+
+You must confirm:
+
+This endpoint exists
+
+It filters by created_at for today (UTC)
+
+Mining reward transactions are counted
+
+If the endpoint is missing → create it.
+
+4. Fix Recent Activity
+
+Recent Activity uses:
+
+/api/users/activity
+
+or /api/transactions/recent
+
+Make sure mining transactions also appear by:
+
+Adding WHERE type = 'mining_reward'
+
+Ordering by created_at DESC
+
+Limiting results (e.g., LIMIT 20)
+
+5. Test it in staging AND production
+
+After fixing:
+
+Trigger: /api/mining/run-daily-earnings-test
+
+Check that:
+
+Balance increases
+
+A mining reward record is created in earnings_transactions
+
+“Today” shows the amount
+
+“Recent activity” shows the mining reward
+
+Once confirmed → push to production (globance.app)
+
+📌 IMPORTANT
+
+Do NOT continue using the broken PostgreSQL Pool connection.
+Use ONLY the working Supabase client for all mining-related inserts.
+
+🎯 FINAL GOAL
+
+Mining rewards MUST be recorded in the database
+
+Users MUST see the mining reward in:
+
+✔ “Today” earnings
+✔ “Recent Activity”
+✔ “Total Earned”
+✔ “Balance”
+
+Mining must run correctly daily at 21:00 UTC
+
+Tell me once all endpoints, inserts, and views are fully fixed and deployed.

@@ -1,0 +1,150 @@
+I want to fully deploy my Globance platform on Replit as a complete production full-stack app. 
+
+Please automatically set up everything needed based on the code in my GitHub repository. Here is what I need you to do for me:
+
+---------------------------------------
+# 1️⃣ IMPORT CODE & FIX STRUCTURE
+---------------------------------------
+• Import my GitHub repository:
+  https://github.com/globances-dev/globance-staging
+
+• Detect whether my project has:
+  - client (React + Vite)
+  - server (Express + TypeScript)
+  - package.json at root
+
+• Fix the folder structure automatically so the app works as:
+  - server runs Express API
+  - client builds with Vite
+  - server serves client’s dist folder in production
+  - single always-on server process (no Netlify/Vercel setup)
+
+• If necessary, create missing files:
+  - .replit
+  - replit.nix
+  - replit.json
+  - root package.json scripts
+  - Jest removed (if exists)
+  - vite.config.ts fixed
+
+---------------------------------------
+# 2️⃣ CREATE CORRECT PACKAGE.JSON (ROOT)
+---------------------------------------
+Update or recreate root package.json with:
+
+{
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter server dev\" \"pnpm --filter client dev\"",
+    "build": "pnpm --filter client build",
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.x",
+    "cors": "^2.x",
+    "dotenv": "^16.x",
+    "concurrently": "^8.x"
+  }
+}
+
+• Make sure Express production build works.
+• Remove Netlify scripts and serverless functions.
+
+---------------------------------------
+# 3️⃣ CONFIGURE REPLIT BUILD ENVIRONMENT
+---------------------------------------
+Please automatically generate and configure:
+
+• .replit  
+• replit.nix  
+• replit.json  
+
+They must support:
+
+✔️ pnpm  
+✔️ Vite  
+✔️ TypeScript  
+✔️ Express server  
+✔️ Node 18+  
+✔️ Production deployment with Replit Deployments
+
+---------------------------------------
+# 4️⃣ SERVER REQUIREMENTS
+---------------------------------------
+The server must:
+
+✔️ Start with: node server/index.js  
+✔️ Expose HTTPS production URL for NOWPayments webhooks  
+✔️ Serve the frontend from /dist  
+✔️ Have endpoints:
+
+/api/auth/*  
+/api/packages/*  
+/api/deposits/*  
+/api/webhook/nowpayments  
+/api/mining/process  
+/api/p2p/*  
+
+✔️ Support RAW body for NOWPayments webhook  
+✔️ Work under a single port: process.env.PORT  
+
+---------------------------------------
+# 5️⃣ ENVIRONMENT VARIABLES
+---------------------------------------
+Create a template .env.example containing:
+
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE=
+JWT_SECRET=
+CRON_SECRET=
+NOWPAYMENTS_API_KEY=
+NOWPAYMENTS_IPN_SECRET=
+NODE_ENV=production
+APP_URL=
+
+Make the app read env variables using process.env.* everywhere (no VITE_ vars).
+
+---------------------------------------
+# 6️⃣ SUPABASE + SQL SETUP
+---------------------------------------
+I already have a working Supabase project with the SQL schema installed.
+
+Please verify:
+• Prisma is not used  
+• Database is accessed through Supabase client only  
+• All queries match my SQL schema  
+
+---------------------------------------
+# 7️⃣ CRON JOB SUPPORT
+---------------------------------------
+Create an endpoint:
+
+POST /api/mining/process
+
+This endpoint must:
+• Calculate daily earnings
+• Update wallets
+• Update referral earnings
+• Log everything in cron_logs
+• Return {"success": true}
+
+I will trigger this using cron-job.org.
+
+---------------------------------------
+# 8️⃣ MAKE FULL DEPLOYMENT AUTOMATIC
+---------------------------------------
+After fixing my project:
+
+1. Build frontend → client/dist
+2. Serve client from Express
+3. Start server → node server/index.js
+4. Enable “Always-On” Replit Deployment
+5. Give me the production URL
+6. Verify webhook URL path
+7. Verify all routes return valid JSON
+8. Verify no missing dependencies
+
+---------------------------------------
+# 9️⃣ FINAL DELIVERABLES
+---------------------------------------
+After setup is complete, I want:

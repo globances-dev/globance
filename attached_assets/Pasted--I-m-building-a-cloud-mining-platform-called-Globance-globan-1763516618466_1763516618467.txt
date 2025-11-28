@@ -1,0 +1,287 @@
+________________________________________I’m building a cloud-mining platform called Globance (globance.app). Mining is the main product. P2P is just one extra feature to let users buy/sell USDT with fiat.
+I want you to upgrade and redesign the P2P system to look and behave like a professional exchange (Binance/OKX/MEXC style), based on these exact rules.
+Please implement everything end-to-end:
+•	Supabase schema (migrations)
+•	Backend API (Express / TypeScript)
+•	Frontend pages & components (P2P list, create offer, order flow, chat)
+•	Admin controls for P2P
+•	No breaking changes to mining, wallets, referrals, deposits, withdrawals
+________________________________________
+1. General P2P rules
+1.	Only USDT is traded in P2P.
+2.	Users trade USDT vs Fiat currencies (ETB, NGN, KES, etc.).
+3.	P2P is real escrow, not fake:
+o	When a SELL offer is matched, the seller’s USDT is locked in escrow from their main wallet.
+o	After release, USDT moves to buyer’s wallet.
+4.	Networks (TRC20/BEP20) should NOT be shown on the P2P interface.
+o	Network is relevant only for deposits/withdrawals, not for P2P trading UI.
+5.	No rating system for now.
+6.	Disputes are resolved manually by admin via an admin panel.
+________________________________________
+2. Price range control (per fiat)
+I want a central admin control for USDT price ranges per fiat.
+Create a table like:
+•	fiat_currencies
+o	id (uuid)
+o	code (e.g. ETB, NGN, KES) – unique
+o	name (e.g. “Ethiopian Birr”)
+o	country (e.g. “Ethiopia”)
+o	min_price (DECIMAL) – min allowed USDT price in this fiat
+o	max_price (DECIMAL) – max allowed USDT price in this fiat
+o	is_active (boolean)
+o	timestamps
+Business rule:
+Users must create offers ONLY inside this price range.
+If ETB range is 170–180, an offer at 165 or 185 must be rejected.
+Validation requirements:
+•	When user creates / updates an offer, backend validates:
+o	min_price <= offer.price <= max_price
+o	fiat_currency must exist and be active.
+•	If invalid → return clear error message:
+o	e.g. “Price must be between 170 and 180 ETB for 1 USDT.”
+Admin requirements:
+•	Admin UI (or at least SQL + README) to:
+o	Add / edit / deactivate fiat currencies.
+o	Set min_price and max_price per fiat.
+________________________________________
+3. User payment methods (banks, mobile money)
+Before a user can buy or sell in P2P, they must set up at least one payment method with these required fields:
+Required per method:
+•	Country
+•	Full Name (account holder name)
+•	Bank / Provider name (Bank1, Bank2, TeleBirr, M-PESA etc.)
+•	Account number (or phone number for mobile money)
+•	Optional note (branch, extra info)
+Create tables like:
+•	user_payment_methods
+o	id (uuid)
+o	user_id (uuid → users.id)
+o	fiat_currency_code (matches fiat_currencies.code)
+o	type (e.g. bank, mobile_money)
+o	provider_name (bank or wallet name)
+o	account_name
+o	account_number
+o	extra_info (JSONB, optional)
+o	is_active (boolean)
+o	timestamps
+Rules:
+•	One user can have multiple payment methods.
+•	Payment methods are linked to specific fiat currencies.
+•	On first P2P action (create offer / take offer), if user has no active payment method for that fiat:
+o	Show a modal: “Add payment method” with the fields above.
+•	In the UI there should be a “Manage Payment Methods” section (can be accessible from P2P & Wallet).
+________________________________________
+4. Offers model (Buy/Sell)
+Please update/refactor the offers table and API to match this logic.
+Offer fields should include (adapt existing where possible):
+•	id (uuid)
+•	user_id (uuid)
+•	side (buy or sell)
+•	total_amount_usdt (DECIMAL) – total offer size
+•	remaining_amount_usdt (DECIMAL)
+•	price_fiat_per_usdt (DECIMAL)
+•	fiat_currency_code (e.g. ETB)
+•	country (string)
+•	min_limit_fiat (DECIMAL) – minimum order size in fiat
+•	max_limit_fiat (DECIMAL) – maximum order size in fiat
+•	payment_method_ids (array of uuid) – references user_payment_methods.id
+•	is_active (bool)
+•	timestamps
+Important rules:
+1.	When creating an offer:
+o	Validate user has enough USDT balance in their wallet for SELL offers.
+o	Validate price_fiat_per_usdt is within the admin’s min_price and max_price for that fiat.
+o	Validate at least one payment method chosen.
+o	Validate min_limit_fiat and max_limit_fiat are consistent with total_amount_usdt and price.
+2.	Offer depletion:
+o	Each trade reduces remaining_amount_usdt.
+o	When remaining_amount_usdt <= 0, auto-close the offer (is_active = false).
+o	Prevent negative balances.
+3.	UI:
+o	P2P page should show:
+	Tabs: Buy | Sell
+	Dropdown: Fiat (ETB, NGN, etc.).
+	Filters: Amount, Payment method.
+	Offer row: seller/buyer nickname, price, available USDT, min/max fiat, list of payment methods.
+o	When fiat is changed, list reloads for that fiat.
+________________________________________
+5. Escrow & trade flows
+Use/extend the current trades table to follow this state machine:
+Statuses:
+•	pending – trade created, waiting for buyer to pay.
+•	payment_sent – buyer clicked “I have paid”, uploaded receipt.
+•	released – seller confirmed, escrow released to buyer.
+•	cancelled – cancelled before buyer payment.
+•	expired – payment time window expired without buyer action.
+•	disputed – buyer or seller clicked “Open dispute”.
+•	dispute_resolved_buyer / dispute_resolved_seller – admin resolution.
+Trade fields (extend existing):
+•	id (uuid)
+•	offer_id
+•	buyer_id
+•	seller_id
+•	amount_usdt
+•	price_fiat_per_usdt
+•	total_fiat (DECIMAL)
+•	fiat_currency_code
+•	buyer_payment_method_id
+•	seller_payment_method_id
+•	status
+•	escrow_amount_usdt
+•	payment_deadline (timestamp)
+•	dispute_reason (text, nullable)
+•	dispute_notes (text/json for admin)
+•	timestamps
+Escrow behavior (VERY IMPORTANT):
+We chose Option A: escrow deducted from main wallet.
+When a BUYER takes a SELL offer:
+1.	Validate seller’s wallet:
+o	wallet.usdt_balance >= amount_usdt AND sufficient free balance considering other locked trades.
+o	Implementation suggestion:
+	Either use a dedicated escrow_balance column and move funds there,
+	Or at least deduct from usdt_balance and track locked in trades.escrow_amount_usdt.
+2.	On trade creation:
+o	Subtract amount_usdt from seller’s usdt_balance.
+o	Add amount_usdt to seller’s escrow_balance.
+o	Set escrow_amount_usdt on trade.
+o	Set status = 'pending'.
+o	Set payment_deadline = now() + 30 minutes
+(IMPORTANT: payment window is 30 minutes, not 15/20).
+3.	Buyer view:
+o	Sees seller’s bank/mobile-money details for the chosen payment method.
+o	Can chat with seller via in-order chat (see #6).
+o	After paying, buyer clicks “I have paid” and uploads payment screenshot / receipt.
+4.	Seller view:
+o	Sees buyer’s details and screenshot.
+o	Can chat with buyer.
+o	If payment is confirmed, clicks “Release USDT”:
+	Move escrow_amount_usdt from seller’s escrow to buyer’s usdt_balance.
+	Set trade status = 'released' or completed.
+	Reduce remaining_amount_usdt from the offer.
+5.	Expiry:
+o	If buyer DOES NOT click “I have paid” within 30 minutes:
+	Trade becomes expired.
+	Escrow is released back to seller’s available balance.
+o	Logic can be implemented by:
+	A scheduled job (cron) or
+	Lazy evaluation on next action (for now cron is fine, but you can also implement a backend endpoint triggered by existing cron system if we already have one).
+6.	Cancellation rules:
+o	Buyer can cancel only while status = 'pending' and before payment.
+o	When cancelled:
+	Escrow is unlocked → back to seller wallet.
+	Trade status = 'cancelled'.
+7.	Dispute:
+o	After buyer clicks “I have paid” (payment_sent), either side can click “Open dispute”.
+o	Trade status = 'disputed', dispute_reason saved from a simple text form.
+o	Escrow stays locked.
+o	Admin can see dispute data in admin panel and decide:
+	Release funds to buyer → update wallets accordingly, set status = 'dispute_resolved_buyer'.
+	Return funds to seller → escrow back to seller, set status = 'dispute_resolved_seller'.
+________________________________________
+6. In-order chat & attachments
+Create a simple chat system linked to trades:
+•	p2p_chat_messages
+o	id
+o	trade_id
+o	sender_id
+o	message (text, nullable)
+o	attachment_url (for screenshots, receipts)
+o	timestamps
+Features:
+•	Inside each trade, buyer and seller can send messages.
+•	Allow file upload for payment screenshots:
+o	You can reuse any existing file storage integration or Supabase storage.
+•	Show messages in chronological order like a simple chat.
+•	Only buyer/seller of that trade (and admin via admin panel) can see the conversation.
+________________________________________
+7. P2P UI structure
+On mobile/desktop, change the P2P navigation and components to look more like a professional exchange:
+•	Sidebar menu items (already requested earlier):
+o	Dashboard
+o	Packages
+o	P2P (rename from “P2P Marketplace” to just “P2P”)
+o	My Wallet
+o	Referral (for referral program)
+o	Customer Support (link to my Telegram/WhatsApp as we already discussed)
+o	Logout (last item, red)
+P2P main page:
+•	Top area:
+o	Big title: P2P
+o	Subtitle: “Buy and sell USDT with secure escrow protection.”
+o	Button: Create Offer.
+•	Filter bar (similar to Binance/MEXC):
+o	Tabs: Buy | Sell.
+o	Dropdown: Fiat (loads from fiat_currencies).
+o	Filters:
+	Amount (optional)
+	Payment method (optional)
+o	Search bar: "Search by country or payment type" is a plus but optional.
+•	Offer card / row shows:
+o	Seller/Buyer nickname (masked email or ref code)
+o	Price per USDT in fiat
+o	Available amount (USDT)
+o	Limits per order (min–max fiat)
+o	Supported payment methods (icons or names)
+o	“Buy” or “Sell” button
+Create Offer modal / page:
+Fields:
+•	Side: Buy / Sell
+•	Fiat currency (dropdown)
+•	Country (dropdown or input)
+•	Total amount (USDT)
+•	Price per USDT (fiat) – validated against fiat_currencies.min_price/max_price
+•	Min limit (fiat)
+•	Max limit (fiat)
+•	Payment methods (multi-select from user’s user_payment_methods for that fiat)
+Validation:
+•	All required
+•	Price inside allowed range
+•	Min+max within total (no impossible combinations)
+•	For SELL offers, check they have enough free USDT → move to escrow on trade creation, not on offer creation (but guard against obviously impossible totals).
+________________________________________
+8. Admin P2P management
+In the admin panel (or via dedicated endpoints and a simple page), I need to manage:
+1.	Fiat currencies
+o	List/add/edit/delete
+o	Set min_price & max_price
+o	Toggle is_active
+2.	Disputes
+o	List trades where status = 'disputed'.
+o	Show:
+	Trade details
+	Chat history
+	Payment screenshot(s)
+o	Buttons:
+	“Release to buyer”
+	“Return to seller”
+o	Admin action should:
+	Adjust wallets correctly
+	Update trade status accordingly
+	Log in audit_logs.
+3.	(Optional but nice): View aggregated stats:
+o	Total P2P volume per fiat
+o	Number of active offers
+o	Number of disputes
+Use existing Supabase tables (audit_logs, etc.) where suitable.
+________________________________________
+9. Backwards compatibility & migrations
+Please:
+•	Add SQL migration files in server/migrations to:
+o	Create new tables (fiat_currencies, user_payment_methods, p2p_chat_messages) and any new columns in offers and trades.
+o	Migrate or safely adapt existing P2P data if necessary.
+•	Keep mining, referral system, deposits, withdrawals, and wallets unchanged except for:
+o	Using escrow_balance (if not already used) to support P2P escrow properly.
+________________________________________
+10. Final steps
+After you implement everything:
+1.	Run migrations on Supabase.
+2.	Deploy the updated backend/frontend to my existing Replit deployment (globance.app).
+3.	Give me:
+o	Short explanation of how escrow flow works in the final version.
+o	How to:
+	Add new fiat currencies / set price ranges.
+	Add banks/mobile money options per country.
+	Review & resolve disputes.
+o	Any new environment variables or config I must set.
+That’s all. Please build this full P2P system according to the exact rules above, without breaking existing mining features.
+

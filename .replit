@@ -1,0 +1,54 @@
+modules = ["nodejs-20", "web", "postgresql-16"]
+[agent]
+expertMode = true
+
+[nix]
+channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "dev-server"
+
+[[workflows.workflow]]
+name = "dev-server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["npm", "run", "start"]
+build = ["npm", "run", "build"]
+
+[userenv]
+
+[userenv.shared]
+CRON_SECRET = "globance-cron-secret-2024-production"
+DATABASE_URL_DEV = "postgresql://neondb_owner:npg_zmb6uewogP0R@ep-withered-glade-af08hjn7.c-2.us-west-2.aws.neon.tech:5432/neondb?sslmode=require"
+DATABASE_URL_PROD = "postgresql://neondb_owner:npg_zmb6uewogP0R@ep-withered-glade-af08hjn7.c-2.us-west-2.aws.neon.tech:5432/globance_prod?sslmode=require"
+
+[userenv.development]
+ENVIRONMENT = "development"
+NODE_ENV = "development"
+
+[userenv.production]
+NODE_ENV = "production"
+ENVIRONMENT = "production"
+
+[[ports]]
+localPort = 5000
+externalPort = 80

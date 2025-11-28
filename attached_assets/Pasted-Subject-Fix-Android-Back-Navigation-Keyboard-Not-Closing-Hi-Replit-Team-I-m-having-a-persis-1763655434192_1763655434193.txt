@@ -1,0 +1,28 @@
+Subject: Fix Android Back Navigation (Keyboard Not Closing)
+Hi Replit Team 👋,
+I’m having a persistent issue on my platform when using it on mobile devices (Android Chrome):
+❗️ Problem
+When the user is typing in any input field and they press the Android back button, the app tries to navigate back instead of closing/hiding the keyboard.
+The keyboard should close first, but it doesn’t.
+❗️ What I need
+Please add a global mobile back-button handler so that:
+If the keyboard is open → back button should only close keyboard (blur input)
+Only after the keyboard is closed → back button should navigate normally
+✔️ Required Fix
+Please add this logic to the React frontend (inside the client folder):
+Create a hook at:
+client/hooks/useMobileBackHandler.ts 
+Use this code:
+import { useEffect } from "react"; export default function useMobileBackHandler() { useEffect(() => { const blurIfInputFocused = () => { const active = document.activeElement as HTMLElement | null; if (!active) return false; const isInput = active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.getAttribute("contenteditable") === "true"; if (isInput) { active.blur(); return true; } return false; }; const onPopState = (event: PopStateEvent) => { const blurred = blurIfInputFocused(); if (blurred) { event.preventDefault(); window.history.pushState(null, "", window.location.pathname); } }; const viewport = window.visualViewport; if (viewport) { viewport.addEventListener("resize", () => {}); } window.addEventListener("popstate", onPopState); return () => { window.removeEventListener("popstate", onPopState); if (viewport) viewport.removeEventListener("resize", () => {}); }; }, []); } 
+Then activate it globally in:
+client/App.tsx 
+Add this import:
+import useMobileBackHandler from "./hooks/useMobileBackHandler"; 
+Then call it inside <App>:
+function App() { useMobileBackHandler(); return (...); } 
+🎯 Expected Result
+Pressing Android back button hides the keyboard first
+Only the next back press should navigate to the previous screen
+No more accidental page exits
+Works across all pages (globally)
+Thank you! Let me know once it is implemented.

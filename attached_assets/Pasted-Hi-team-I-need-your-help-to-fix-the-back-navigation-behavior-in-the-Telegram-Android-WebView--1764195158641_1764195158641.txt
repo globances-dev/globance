@@ -1,0 +1,88 @@
+Hi team 👋,
+
+I need your help to fix the back navigation behavior in the Telegram Android WebView.
+
+❗ The Problem
+
+Inside Telegram WebView (Android):
+
+When I tap the hardware back button,
+the page immediately navigates backward
+
+The keyboard does NOT close first
+
+This only happens inside Telegram (Chrome works correctly)
+
+
+I want the correct behavior:
+
+➡️ When the user presses the Android back button, the keyboard should close first.
+➡️ Only after the keyboard is closed, the page should navigate backward.
+
+This is the same UX used by Binance Mini App, OKX, and other Telegram Web Apps.
+
+
+---
+
+✅ Important note
+
+I understand that Telegram does not allow JavaScript to capture the hardware back button directly.
+
+But we can solve it using the known Telegram Mini App workaround:
+
+> “If you prevent actual backward navigation by overriding history.pushState,
+Telegram is forced to close the keyboard instead of navigating back.”
+
+
+
+This method is used across many production Telegram Web Apps.
+
+
+---
+
+⭐ REQUEST: Please implement the following fix in my project
+
+Add this global script in the ROOT of the app (e.g., App.js, index.js, or main layout – not inside a component):
+
+// Prevent Telegram WebView from navigating back immediately
+window.history.pushState(null, null, location.href);
+
+window.addEventListener("popstate", () => {
+    const el = document.activeElement;
+
+    // If an input/textarea is focused → blur it (close keyboard)
+    if (el && ["INPUT", "TEXTAREA"].includes(el.tagName)) {
+        el.blur(); // close keyboard
+        window.history.pushState(null, null, location.href); // restore state
+        return;
+    }
+
+    // If no keyboard is open → allow real back navigation
+    window.history.back();
+});
+
+
+---
+
+📌 Expected Behavior After Fix
+
+Inside Telegram Android:
+
+✔ First back press → keyboard closes
+
+✔ Second back press → page navigates backward
+
+✔ Works for all input fields
+
+✔ No side effects in Chrome, Safari, or regular browsers
+
+This is exactly how Binance & OKX handle WebView keyboard behavior in Telegram.
+
+
+---
+
+🔧 Please confirm that the code is added to the ROOT level so it runs only once.
+
+Let me know when it is implemented so I can test it immediately.
+
+Thanks!

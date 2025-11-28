@@ -1,0 +1,100 @@
+I need you to fix the Mining Reward display and logging system.  
+The mining payouts are being added to Total Balance and Total Earned,  
+BUT they are not appearing in:
+
+• “Today” (still shows +$0.00)  
+• “Recent Activity” (no “Mining Reward” rows)
+
+This means the frontend is working correctly, but the backend logging is broken.
+
+Please check and fix the following:
+
+-----------------------------------------
+1. Verify that the mining cron job writes a transaction record
+-----------------------------------------
+
+When mining payouts run, the backend MUST create an entry in the  
+earnings_transactions table.
+
+It MUST follow exactly this format:
+
+transaction_type = 'daily_mining_income'  
+amount_usdt > 0  
+user_id = the correct user  
+created_at = timestamp at payout time
+
+Please confirm that processDailyEarnings() is actually calling  
+recordEarningsTransaction (or equivalent).
+
+If it is not being called, add the missing call.
+
+If it IS being called, verify the transaction_type is EXACTLY:
+'daily_mining_income'
+(not “mining_reward”, not “reward”, not “investment”, not “income”).
+
+-----------------------------------------
+2. Fix the Activity Feed API
+-----------------------------------------
+
+The Activity Feed and Today card only show transactions where:
+
+transaction_type = 'daily_mining_income'
+AND amount_usdt > 0
+
+So if mining rewards are using any other transaction type,
+they will NEVER appear in activity.
+
+Please update the mining payout code so the transaction type matches the filter:
+'daily_mining_income'
+
+-----------------------------------------
+3. Fix TODAY calculation
+-----------------------------------------
+
+Today’s Earnings = sum of all earnings_transactions for the current UTC date  
+with transaction_type = 'daily_mining_income'.
+
+If the mining cron is saving rewards but using the wrong timestamp,
+wrong type, or wrong table, Today will always show $0.00.
+
+Please verify:
+
+• Payout timestamp is saved in UTC  
+• created_at is written correctly  
+• Today endpoint reads the correct table and correct rows
+
+-----------------------------------------
+4. Verify CRON job is running only once per day
+-----------------------------------------
+
+The cron must run at 21:00 UTC ONLY.
+
+Please check:
+
+a) cron_logs table — what timestamps does it show?  
+b) Is there any second trigger inside the code (node-cron, setInterval, test route)?  
+c) Is another external cron also hitting the endpoint?
+
+Remove any extra/internal triggers.
+
+Only the official external cron should call:
+POST /api/mining/process-daily-earnings
+
+-----------------------------------------
+5. Confirm the final expected result
+-----------------------------------------
+
+After you fix the above, the system should show:
+
+✔ Total Balance increases each day  
+✔ Total Earned increases each day  
+✔ “Today” shows today’s mining reward  
+✔ “Recent Activity” shows a transaction like:
+   “Mining Reward +$X.XX”  
+✔ Only 1 payout per day at 21:00 UTC
+
+-----------------------------------------
+
+Please confirm each fix with screenshot or code snippet so I can verify everything is working properly.
+
+Thank you.

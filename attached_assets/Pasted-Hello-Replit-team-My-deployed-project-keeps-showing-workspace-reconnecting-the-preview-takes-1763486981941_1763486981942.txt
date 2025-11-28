@@ -1,0 +1,105 @@
+Hello Replit team 👋
+
+My deployed project keeps showing "workspace reconnecting…", the preview takes a long time to load, and the deployed app is not smooth or stable.
+
+I want the project to run fast, stable, and without reconnecting issues.
+
+Here is what I need your help with:
+
+1️⃣ Convert my project to a proper Production Deployment
+
+Please move my project away from the “development workspace” runtime and run it using a proper Deployment (Autoscale or Reserved VM).
+The workspace is disconnecting constantly and is not suitable for real users.
+
+Please:
+
+Set up a Production Deployment
+
+Use the correct build command
+
+Use the correct run command
+
+Ensure the Express backend + Vite SPA bundle work correctly
+
+Ensure the URL is stable and always online
+
+Remove dependency on the workspace preview environment
+
+2️⃣ Optimize the deployment for performance
+
+I want the deployed version to be:
+
+Fast loading
+
+No more reconnecting
+
+No blank white screens
+
+No crashing, no restarts
+
+Stable HTTPS endpoint for API and webhooks
+
+Please check:
+
+Node version compatibility
+
+RAM/CPU requirements
+
+Build artifacts size
+
+If any unnecessary files are slowing it down
+
+If Autoscale or a Reserved VM is the correct choice for reliability
+
+3️⃣ Make sure server stays alive
+
+My backend must always be online because:
+
+Users need permanent wallet addresses
+
+NOWPayments webhooks must reach the server
+
+cron-job.org calls my daily earnings endpoint
+
+Database operations depend on an active backend
+
+Please configure the deployment so:
+
+The Express server never sleeps
+
+No “reconnecting workspace” messages
+
+Webhook routes are always reachable
+
+4️⃣ Help me choose the correct Deployment Plan
+
+Based on my project needs (financial platform, webhooks, cron calls, stable backend), please recommend:
+
+❓ Should I use Autoscale Deployment?
+❓ Or Reserved VM Deployment?
+
+I need:
+
+24/7 uptime
+
+No sleep
+
+No reconnection issues
+
+Stable server performance
+
+Good response time
+
+Summary
+
+Please help me:
+
+Convert my app to a proper Production Deployment
+
+Ensure high stability, no reconnecting, no slowness
+
+Configure the backend to stay always online
+
+Optimize everything for speed and reliability
+
+Thank you!

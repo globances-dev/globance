@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Globance - Premium Cloud Mining Platform</title>
+    
+    <!-- Favicon & App Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/globance-icon.svg" />
+    
+    <!-- Theme & Branding -->
+    <meta name="theme-color" content="#D4AF37" />
+    <meta name="msapplication-TileColor" content="#0A0A0A" />
+    
+    <!-- Primary Meta Tags -->
+    <meta name="title" content="Globance - Premium Cloud Mining Platform" />
+    <meta name="description" content="" />
+    <meta name="author" content="Globance" />
+    
+    <!-- Open Graph / Facebook / Telegram -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://globance.app/" />
+    <meta property="og:site_name" content="Globance" />
+    <meta property="og:title" content="Globance - Premium Cloud Mining Platform" />
+    <meta property="og:description" content="" />
+    <meta property="og:image" content="https://globance.app/og-image.svg" />
+    <meta property="og:image:type" content="image/svg+xml" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://globance.app/" />
+    <meta name="twitter:title" content="Globance - Premium Cloud Mining Platform" />
+    <meta name="twitter:description" content="" />
+    <meta name="twitter:image" content="https://globance.app/og-image.svg" />
+
+    <!-- Telegram WebApp SDK - Load in HEAD for earliest availability -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  </head>
+
+  <body>
+    <!-- TELEGRAM WEBAPP OFFICIAL BACK BUTTON FIX - MUST BE FIRST -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var tg = window.Telegram && window.Telegram.WebApp;
+
+        if (!tg) {
+          console.log("[DEBUG] Telegram WebApp object not detected.");
+          return;
+        }
+
+        console.log("[DEBUG] Telegram WebApp detected — enabling back button fix.");
+        console.log("[DEBUG] Telegram WebApp version:", tg.version);
+        console.log("[DEBUG] BackButton available:", !!tg.BackButton);
+
+        // Initialize Telegram WebApp
+        tg.ready();
+        tg.expand();
+
+        // Show Telegram's built-in back button
+        if (tg.BackButton && typeof tg.BackButton.show === 'function') {
+          tg.BackButton.show();
+          console.log("[DEBUG] Telegram BackButton.show() called");
+        } else {
+          console.log("[DEBUG] BackButton.show() not available in this version");
+        }
+
+        // When Telegram back button is clicked → blur input instead of navigating
+        if (tg.BackButton && typeof tg.BackButton.onClick === 'function') {
+          tg.BackButton.onClick(function() {
+            var active = document.activeElement;
+
+            if (active && ["INPUT", "TEXTAREA"].includes(active.tagName)) {
+              console.log("[DEBUG] Telegram back button: blur input");
+              active.blur();
+              return;
+            }
+
+            // Only navigate back if keyboard is already closed
+            console.log("[DEBUG] Telegram back button: navigate back");
+            window.history.back();
+          });
+          console.log("[DEBUG] BackButton.onClick() handler registered");
+        } else {
+          console.log("[DEBUG] BackButton.onClick() not available in this version");
+        }
+
+        // OPTIONAL: make hardware back simulate Telegram back button behavior
+        window.addEventListener("popstate", function() {
+          var active = document.activeElement;
+
+          if (active && ["INPUT", "TEXTAREA"].includes(active.tagName)) {
+            console.log("[DEBUG] Hardware back triggered → blur input");
+            active.blur();
+            history.pushState(null, null, "");
+            return;
+          }
+
+          // Telegram back button handles navigation
+          console.log("[DEBUG] Hardware back: deferring to Telegram back behavior");
+        });
+
+        // Create initial history state
+        history.pushState(null, null, "");
+        console.log("[DEBUG] Initial history state created");
+        console.log("[DEBUG] Back button fix fully initialized");
+      });
+    </script>
+
+    <div id="root"></div>
+
+    <script type="module" src="/client/App.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,97 @@
+"Hello Replit team, I need your help updating all front-end text and UI content across my platform to make it fully mining-focused and professional (like major cloud-mining platforms). Below is the complete rewritten site content. Please implement all of it in the correct places in my front-end (React/Vite) files.
+________________________________________
+🔥 UPDATE ALL WEBSITE TEXT WITH THE FOLLOWING CONTENT
+1. Homepage
+Hero Title:
+Activate Your Mining Power. Earn Daily. Grow Nonstop.
+Hero Subtitle:
+Globance is a high-performance cloud mining platform where your mining power works 24/7 — so you earn rewards every single day.
+Mini Description:
+Mining made simple. Choose your package → activate mining power instantly → earn daily USDT rewards.
+Why Globance Section:
+•	Instant Activation
+•	Daily Rewards
+•	Secure & Reliable
+•	Fast USDT Withdrawals
+•	Referral Earnings
+How It Works:
+1.	Create Account
+2.	Choose Mining Package
+3.	Activate Power
+4.	Earn Daily
+5.	Withdraw Anytime
+________________________________________
+2. Packages Page
+Title: Mining Packages — Choose Your Power. Earn Daily.
+Packages (6):
+•	Bronze – Entry-level power
+•	Silver – Stronger mining output
+•	Gold – Advanced mining power
+•	Platinum – Premium performance
+•	Diamond – Elite mining strength
+•	Legendary – Ultimate mining power
+Every package must show:
+•	Daily percentage
+•	Duration (270 days)
+•	“Activate” button
+________________________________________
+3. Dashboard
+Title: Welcome Back — Your Mining Power Is Working for You
+Dashboard must show:
+•	Total USDT Balance
+•	Total Earnings
+•	Active Packages
+•	Referral count
+•	Buttons: Deposit, Withdraw, Activate Package, Copy Referral Link
+________________________________________
+4. Deposit Page
+Title: Deposit USDT — Grow Your Mining Power
+Minimum deposit: 5 USDT
+Networks: TRC20 and BEP20
+________________________________________
+5. Withdraw Page
+Title: Withdraw Your Earnings
+Fast USDT withdrawals
+Minimum withdrawal: 5 USDT
+________________________________________
+6. Referral Page
+Title: Earn More with Referrals
+Bonus Levels:
+•	Level 1: 10%
+•	Level 2: 3%
+•	Level 3: 2%
+________________________________________
+7. About Page
+Title: About Globance
+Globance is a modern cloud mining platform that gives users daily USDT rewards through automated mining power.
+________________________________________
+8. Footer
+Globance — Activate mining power. Earn daily.
+Cloud mining made simple, powerful, and reliable.
+________________________________________
+9. Login/Signup
+Login Title: Welcome Back to Your Mining Dashboard
+Signup Title: Create Your Mining Account
+________________________________________
+10. Notification Texts
+•	Mining power activated
+•	Deposit received
+•	New referral joined
+•	Daily mining rewards added
+________________________________________
+🔧 WHAT I NEED REPLIT TO DO
+1.	Replace ALL old text in the React front-end with the above mining-focused content.
+2.	Remove P2P language from homepage, dashboard headers, descriptions, etc.
+3.	Keep P2P functionality inside the system (do NOT delete code), but:
+o	Do not show P2P as the main feature
+o	Move it to “Other Services” or keep the button small
+4.	Ensure UI looks clean and consistent after text replacement.
+5.	Make sure dashboard and homepage fully reflect MINING as the main service.
+________________________________________
+🎯 Important
+Please update only the front-end text and UI.
+NO backend logic should be changed.
+________________________________________
+Thank you!"
+________________________________________
+

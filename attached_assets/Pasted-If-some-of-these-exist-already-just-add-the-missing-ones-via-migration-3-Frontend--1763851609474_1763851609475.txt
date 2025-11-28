@@ -1,0 +1,197 @@
+If some of these exist already, just add the missing ones via migration.
+
+
+---
+
+3️⃣ Frontend – User Withdraw screen & Today/Activity
+
+Withdraw page (user side):
+
+Keep the same UI for amount, network, address, and show:
+
+Amount user enters
+
+Fee: 1 USDT
+
+Net amount they will receive
+
+
+On submit:
+
+Call the updated /api/wallet/withdraw endpoint.
+
+On success:
+
+Show “Withdrawal request submitted.”
+
+Update the wallet balance instantly (deducted).
+
+
+
+
+Recent Activity:
+
+When a withdrawal is created:
+
+Add an entry like:
+
+Withdrawal Request -[amount] USDT (Pending – [network])
+
+
+
+When status changes to completed:
+
+Add or update entry:
+
+Withdrawal Completed -[amount] USDT (Network: X)
+
+
+
+When status becomes rejected:
+
+Add entry:
+
+Withdrawal Rejected +[amount] USDT (Refunded)
+
+
+
+
+Today earnings card:
+
+Should not be affected by this change (Today is for mining/referrals).
+
+Just make sure withdrawal events do not break the Today calculation.
+
+
+
+
+---
+
+4️⃣ Admin Panel – Manual Withdrawal Management
+
+I want a proper manual withdrawal dashboard in the admin panel.
+
+Use/extend the existing admin withdrawals section (WithdrawalAdminManagement or similar).
+
+The admin UI should show a table with filters:
+
+
+Columns:
+
+User email
+
+User ID
+
+Amount USDT
+
+Fee USDT
+
+Net amount USDT
+
+Network (TRC20/BEP20)
+
+Wallet address
+
+Status (pending/completed/rejected/failed)
+
+Created at
+
+Filters:
+
+Status (dropdown: All, Pending, Completed, Rejected, Failed)
+
+Network (TRC20, BEP20)
+
+Date range
+
+Search by user email or wallet address
+
+
+Actions per row:
+
+1. Mark as Completed
+
+Only available when status = pending.
+
+Opens a small modal:
+
+
+On confirm:
+
+Update status → completed
+
+
+
+
+
+2. Reject
+
+Only available when status = pending.
+
+On confirm:
+
+Refund full amount_usdt back to user balance (including fee)
+
+Update status → rejected
+
+Add an activity log entry: “Withdrawal Rejected – [amount] USDT, refunded to balance”
+
+
+
+
+3. View details
+
+Show a panel with all data for that withdrawal (for future auditing).
+
+
+
+
+Important:
+
+No calls to NOWPayments from admin actions.
+
+All logic is internal: updating DB only.
+
+Platform balance accounting must stay consistent.
+
+
+
+---
+
+5️⃣ Security / Access
+
+Only admin users (role = 'admin') should be able to access the manual withdrawals admin panel.
+
+All status changes (completed/rejected) must:
+
+Be logged with processed_by_admin_id and processed_at.
+
+Appear correctly in the user’s activity/history.
+
+
+
+
+---
+
+6️⃣ Clean up old NOWPayments withdrawal logic
+
+Remove or disable any leftover NOWPayments withdrawal helpers, payout status checkers, or cron jobs linked to automatic payouts.
+
+Keep NOWPayments only for deposits (existing setup is fine there).
+
+
+
+---
+
+Once this is implemented:
+
+Users will submit withdrawal requests
+
+My system will store them and deduct balance
+
+I will pay manually from my own wallet
+
+Then mark them as Completed from the admin panel
+
+
+No more external payout errors or address whitelisting issues.

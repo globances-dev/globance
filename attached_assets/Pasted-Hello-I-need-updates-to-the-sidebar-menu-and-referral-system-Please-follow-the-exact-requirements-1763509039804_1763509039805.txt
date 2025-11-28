@@ -1,0 +1,65 @@
+Hello!
+I need updates to the sidebar menu and referral system. Please follow the exact requirements below:
+________________________________________
+🔧 1. Update Sidebar Menu Items
+Replace the current sidebar items with this exact list (in this exact order):
+1️⃣ Dashboard
+2️⃣ Packages
+3️⃣ P2P
+4️⃣ My Wallet
+5️⃣ Referral
+6️⃣ Customer Support
+7️⃣ Logout (this must be at the bottom, always last, styled in red)
+Details:
+•	“P2P MarketPlace” → rename to P2P
+•	Add Referral as a NEW page (not inside dashboard)
+•	Add Customer Support
+•	Add Logout button that logs the user out and redirects to /login
+•	Logout button must be colored red, clearly separated as the last item
+________________________________________
+🔧 2. Remove Referral Section From Dashboard
+Please remove the following from the dashboard page:
+•	Referral Code
+•	Referral Link
+•	Copy Referral Link button
+•	Referral Rewards list
+The dashboard should ONLY show mining stats, balances, packages, etc.
+All referral-related content must be moved to the new Referral page.
+________________________________________
+🔧 3. New “Referral” Page
+Create a dedicated page called /referral with:
+A. User Referral Code
+•	Show the user’s referral code
+•	Button: “Copy Code”
+B. Referral Link
+Format:
+https://globance.app/register?ref=USER_REFERRAL_CODE
+Button: “Copy Referral Link”
+C. Referral Rewards Section
+Show the existing levels:
+•	Level 1 – 10%
+•	Level 2 – 3%
+•	Level 3 – 2%
+D. Table of referred users (optional if easy)
+Columns:
+•	Referred User Email
+•	Level
+•	Joined Date
+•	Total Earned From Them
+________________________________________
+🔧 4. New “Customer Support” Page
+Create a simple page with two big buttons:
+•	“Contact on Telegram” → link to my Telegram: (Ask me for link or use # placeholder)
+•	“Contact on WhatsApp” → link to my WhatsApp: (Ask me for link or use # placeholder)
+Buttons should be large, colorful, and centered.
+________________________________________
+🔧 5. Logout Functionality
+•	Add logout button in the sidebar
+•	Color it red
+•	When clicked:
+o	Clear Supabase auth/session
+o	Redirect user to /login
+________________________________________
+Please implement all of the above and let me know once done.
+________________________________________
+
