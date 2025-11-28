@@ -13,7 +13,6 @@ import adminDbRoutes from "./routes/admin-db";
 import settingsRoutes from "./routes/settings";
 import debugRoutes from "./routes/debug";
 import activityRoutes from "./routes/activity";
-import { initializeScheduler } from "./utils/scheduler";
 import { initializeDatabaseTables } from "./utils/db-init";
 
 export function createServer() {
