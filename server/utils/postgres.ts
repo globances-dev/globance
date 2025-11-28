@@ -1,17 +1,42 @@
 import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 
-let client: NeonQueryFunction | null = null;
+let neonClient: NeonQueryFunction | null = null;
 
 /**
- * Get the Neon PostgreSQL client for serverless functions
+ * Neon Serverless PostgreSQL Pool Wrapper
+ * Wraps Neon serverless client to provide a pg.Pool-compatible interface
+ */
+class NeonPoolWrapper {
+  private client: NeonQueryFunction;
+
+  constructor(client: NeonQueryFunction) {
+    this.client = client;
+  }
+
+  async query(sql: string, params: any[] = []) {
+    try {
+      const result = await this.client(sql, params);
+      return {
+        rows: Array.isArray(result) ? result : [],
+        rowCount: Array.isArray(result) ? result.length : 0,
+      };
+    } catch (error: any) {
+      console.error("[PostgreSQL] Query execution error:", error.message);
+      throw error;
+    }
+  }
+}
+
+/**
+ * Get the PostgreSQL connection pool (Neon serverless wrapper)
  * Uses Neon serverless client which is optimized for Netlify Functions
  */
 export function getPostgresPool() {
-  if (client) return { query: client };
+  if (neonClient) return new NeonPoolWrapper(neonClient);
   return initializeClient();
 }
 
-function initializeClient() {
+function initializeClient(): NeonPoolWrapper {
   try {
     const databaseUrl = process.env.DATABASE_URL;
 
@@ -20,13 +45,11 @@ function initializeClient() {
     }
 
     console.log("[PostgreSQL] 🔧 Initializing Neon serverless client...");
-    client = neon(databaseUrl);
+    neonClient = neon(databaseUrl);
 
     console.log("[PostgreSQL] ✓ Neon serverless client initialized");
-    
-    return {
-      query: client,
-    };
+
+    return new NeonPoolWrapper(neonClient);
   } catch (error: any) {
     console.error(
       "[PostgreSQL] ✗ Failed to initialize database:",
@@ -41,9 +64,9 @@ function initializeClient() {
  */
 export async function queryPostgres(sql: string, params: any[] = []) {
   try {
-    const client = getPostgresPool().query;
-    const result = await client(sql, params);
-    return Array.isArray(result) ? result : result?.rows || [];
+    const pool = getPostgresPool();
+    const result = await pool.query(sql, params);
+    return result.rows;
   } catch (error: any) {
     console.error("[PostgreSQL] Query error:", error.message);
     throw error;
