@@ -1,7 +1,7 @@
 -- ========================================
--- GLOBANCE - REPLIT POSTGRESQL PRODUCTION SCHEMA
+-- GLOBANCE - NEON POSTGRESQL PRODUCTION SCHEMA
 -- ========================================
--- Complete schema for Replit PostgreSQL (Neon-backed)
+-- Complete schema for Neon PostgreSQL database
 -- This migration creates all tables needed for production
 -- Run: psql "$DATABASE_URL" -f server/migrations/002_replit_production_schema.sql
 
