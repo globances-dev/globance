@@ -1,10 +1,12 @@
-import sgMail from '@sendgrid/mail';
+import sgMail from "@sendgrid/mail";
 
-const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
-const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'support@globance.com';
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || "";
+const SENDGRID_FROM_EMAIL =
+  process.env.SENDGRID_FROM_EMAIL || "support@globance.com";
 // APP_URL should be set in Netlify environment variables or defaults to production domain
-const APP_URL = process.env.APP_URL || process.env.PUBLIC_URL || 'https://globance.app';
-const FROM_NAME = 'Globance Support';
+const APP_URL =
+  process.env.APP_URL || process.env.PUBLIC_URL || "https://globance.app";
+const FROM_NAME = "Globance Support";
 
 if (SENDGRID_API_KEY) {
   sgMail.setApiKey(SENDGRID_API_KEY);
@@ -20,11 +22,23 @@ interface EmailOptions {
 export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
   try {
     if (!SENDGRID_API_KEY) {
-      console.log('[DEV] Email would be sent to:', options.to, 'Subject:', options.subject);
+      console.log(
+        "[DEV] Email would be sent to:",
+        options.to,
+        "Subject:",
+        options.subject,
+      );
       return true;
     }
 
-    console.log('[EMAIL] Sending to:', options.to, 'Subject:', options.subject, 'From:', SENDGRID_FROM_EMAIL);
+    console.log(
+      "[EMAIL] Sending to:",
+      options.to,
+      "Subject:",
+      options.subject,
+      "From:",
+      SENDGRID_FROM_EMAIL,
+    );
 
     await sgMail.send({
       to: options.to,
@@ -34,14 +48,22 @@ export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
       html: options.html || options.text,
     });
 
-    console.log('[EMAIL] ✓ Successfully sent to:', options.to, 'Subject:', options.subject);
+    console.log(
+      "[EMAIL] ✓ Successfully sent to:",
+      options.to,
+      "Subject:",
+      options.subject,
+    );
     return true;
   } catch (error: any) {
-    console.error('[EMAIL ERROR] Failed to send email to:', options.to);
-    console.error('[EMAIL ERROR] Error code:', error.code);
-    console.error('[EMAIL ERROR] Full error:', JSON.stringify(error, null, 2));
+    console.error("[EMAIL ERROR] Failed to send email to:", options.to);
+    console.error("[EMAIL ERROR] Error code:", error.code);
+    console.error("[EMAIL ERROR] Full error:", JSON.stringify(error, null, 2));
     if (error.response?.body?.errors) {
-      console.error('[EMAIL ERROR] SendGrid errors:', error.response.body.errors);
+      console.error(
+        "[EMAIL ERROR] SendGrid errors:",
+        error.response.body.errors,
+      );
     }
     return false;
   }
@@ -50,7 +72,7 @@ export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
 export const sendRegistrationEmail = async (email: string, name: string) => {
   return sendEmail({
     to: email,
-    subject: 'Welcome to Globance',
+    subject: "Welcome to Globance",
     text: `Welcome ${name}!\n\nYour Globance account has been created successfully. Start earning daily returns from cloud mining packages today!\n\nLogin here: ${APP_URL}/login`,
     html: `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
@@ -73,10 +95,13 @@ export const sendRegistrationEmail = async (email: string, name: string) => {
   });
 };
 
-export const sendPasswordResetEmail = async (email: string, resetLink: string) => {
+export const sendPasswordResetEmail = async (
+  email: string,
+  resetLink: string,
+) => {
   return sendEmail({
     to: email,
-    subject: 'Reset your Globance password',
+    subject: "Reset your Globance password",
     text: `Click the link to reset your password: ${resetLink}\n\nThis link expires in 1 hour.\n\nIf you didn't request this, please ignore this email.`,
     html: `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
@@ -101,7 +126,7 @@ export const sendPasswordResetEmail = async (email: string, resetLink: string) =
 export const sendDepositConfirmationEmail = async (
   email: string,
   amount: number,
-  network: string
+  network: string,
 ) => {
   return sendEmail({
     to: email,
@@ -134,13 +159,13 @@ export const sendDepositConfirmationEmail = async (
 export const sendWithdrawalNotificationEmail = async (
   email: string,
   amount: number,
-  status: 'requested' | 'approved' | 'executed' | 'completed' | 'rejected',
-  txid?: string
+  status: "requested" | "approved" | "executed" | "completed" | "rejected",
+  txid?: string,
 ) => {
   const netAmount = amount - 1; // 1 USDT fee
   const fee = 1;
 
-  if (status === 'rejected') {
+  if (status === "rejected") {
     return sendEmail({
       to: email,
       subject: `Withdrawal Request Rejected`,
@@ -165,11 +190,11 @@ export const sendWithdrawalNotificationEmail = async (
     });
   }
 
-  if (status === 'executed' || status === 'completed') {
+  if (status === "executed" || status === "completed") {
     return sendEmail({
       to: email,
       subject: `Your withdrawal is completed`,
-      text: `Your withdrawal has been executed successfully.\n\nAmount Requested: ${amount} USDT\nPlatform Fee: ${fee} USDT\nNet Amount Sent: ${netAmount} USDT\nTransaction ID: ${txid || 'N/A'}\n\nYour funds have been sent to your wallet address.`,
+      text: `Your withdrawal has been executed successfully.\n\nAmount Requested: ${amount} USDT\nPlatform Fee: ${fee} USDT\nNet Amount Sent: ${netAmount} USDT\nTransaction ID: ${txid || "N/A"}\n\nYour funds have been sent to your wallet address.`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
           <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
@@ -181,7 +206,7 @@ export const sendWithdrawalNotificationEmail = async (
               <p style="margin: 5px 0;"><strong>Amount Requested:</strong> ${amount} USDT</p>
               <p style="margin: 5px 0;"><strong>Platform Fee:</strong> ${fee} USDT</p>
               <p style="margin: 5px 0; color: #10b981;"><strong>Net Amount Sent:</strong> ${netAmount} USDT</p>
-              ${txid ? `<p style="margin: 5px 0; font-size: 12px;"><strong>Transaction ID:</strong> ${txid}</p>` : ''}
+              ${txid ? `<p style="margin: 5px 0; font-size: 12px;"><strong>Transaction ID:</strong> ${txid}</p>` : ""}
             </div>
             <p style="margin: 20px 0 0 0; font-size: 13px; color: #6b7280; line-height: 1.5;">Your funds have been sent to your wallet address. Please check your wallet to confirm receipt.</p>
           </div>
@@ -193,7 +218,12 @@ export const sendWithdrawalNotificationEmail = async (
     });
   }
 
-  const statusDisplayName = status === 'approved' ? 'approved' : status === 'requested' ? 'received' : 'processed';
+  const statusDisplayName =
+    status === "approved"
+      ? "approved"
+      : status === "requested"
+        ? "received"
+        : "processed";
   return sendEmail({
     to: email,
     subject: `Withdrawal ${statusDisplayName}`,
@@ -221,11 +251,11 @@ export const sendMiningPackagePurchaseEmail = async (
   email: string,
   amount: number,
   dailyReturn: number,
-  packageDuration?: string
+  packageDuration?: string,
 ) => {
   return sendEmail({
     to: email,
-    subject: 'Mining package activated',
+    subject: "Mining package activated",
     text: `Your mining package has been activated!\n\nInvestment: ${amount} USDT\nDaily Return: ${dailyReturn}%\n\nStart earning daily returns from cloud mining today!`,
     html: `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
@@ -237,7 +267,7 @@ export const sendMiningPackagePurchaseEmail = async (
           <div style="background-color: #eff6ff; padding: 20px; border-radius: 6px; border: 1px solid #bfdbfe; margin: 20px 0;">
             <p style="margin: 5px 0;"><strong>Investment Amount:</strong> ${amount} USDT</p>
             <p style="margin: 5px 0;"><strong>Daily Return:</strong> ${dailyReturn}%</p>
-            ${packageDuration ? `<p style="margin: 5px 0;"><strong>Duration:</strong> ${packageDuration}</p>` : ''}
+            ${packageDuration ? `<p style="margin: 5px 0;"><strong>Duration:</strong> ${packageDuration}</p>` : ""}
           </div>
           <p style="margin: 20px 0; font-size: 15px; line-height: 1.6;">Your earnings will be calculated and added to your wallet daily.</p>
           <div style="text-align: center; margin: 30px 0;">
@@ -256,12 +286,13 @@ export const sendReferralRewardEmail = async (
   email: string,
   amount: number,
   referrerName: string,
-  level: number
+  level: number,
 ) => {
-  const levelName = level === 1 ? 'Level 1' : level === 2 ? 'Level 2' : 'Level 3';
+  const levelName =
+    level === 1 ? "Level 1" : level === 2 ? "Level 2" : "Level 3";
   return sendEmail({
     to: email,
-    subject: 'You earned a referral reward',
+    subject: "You earned a referral reward",
     text: `You earned ${amount} USDT from a ${levelName} referral!\n\nCongratulations on growing your network at Globance.`,
     html: `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">

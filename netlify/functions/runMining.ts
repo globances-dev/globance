@@ -45,7 +45,10 @@ export const handler = async (event: any, context: any) => {
       }),
     };
   } catch (error: any) {
-    console.error("[CronJob] ❌ Error processing mining earnings:", error.message);
+    console.error(
+      "[CronJob] ❌ Error processing mining earnings:",
+      error.message,
+    );
     return {
       statusCode: 500,
       body: JSON.stringify({
@@ -68,7 +71,7 @@ async function processDailyMiningEarnings() {
     const todayDate = now.toISOString().split("T")[0]; // YYYY-MM-DD format
 
     console.log(
-      `[Mining] ⏰ Starting daily earnings processing at ${now.toISOString()}`
+      `[Mining] ⏰ Starting daily earnings processing at ${now.toISOString()}`,
     );
 
     const pool = getPostgresPool();
@@ -76,7 +79,7 @@ async function processDailyMiningEarnings() {
     // Check if already processed today (idempotency check)
     const cronLogResult = await pool.query(
       "SELECT * FROM cron_logs WHERE DATE(process_date) = $1 AND process_type = 'daily_earnings'",
-      [todayDate]
+      [todayDate],
     );
 
     if (cronLogResult.rows && cronLogResult.rows.length > 0) {
@@ -90,7 +93,7 @@ async function processDailyMiningEarnings() {
 
     // Get all active purchases
     const purchasesResult = await pool.query(
-      "SELECT p.*, pkg.daily_percentage FROM purchases p LEFT JOIN packages pkg ON p.package_id = pkg.id WHERE p.status = 'active'"
+      "SELECT p.*, pkg.daily_percentage FROM purchases p LEFT JOIN packages pkg ON p.package_id = pkg.id WHERE p.status = 'active'",
     );
 
     const purchases = purchasesResult.rows || [];
@@ -102,7 +105,7 @@ async function processDailyMiningEarnings() {
       await pool.query(
         `INSERT INTO cron_logs (process_type, process_date, purchases_processed, total_distributed)
          VALUES ('daily_earnings', $1, 0, 0)`,
-        [now.toISOString()]
+        [now.toISOString()],
       );
 
       return {
@@ -126,21 +129,21 @@ async function processDailyMiningEarnings() {
         // Credit to user wallet
         await pool.query(
           "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-          [dailyEarning, purchase.user_id]
+          [dailyEarning, purchase.user_id],
         );
 
         totalDistributed += dailyEarning;
 
         // Record earnings transaction
         console.log(
-          `[Mining] Recording transaction for user ${purchase.user_id}: ${dailyEarning} USDT`
+          `[Mining] Recording transaction for user ${purchase.user_id}: ${dailyEarning} USDT`,
         );
 
         try {
           await pool.query(
             `INSERT INTO earnings_transactions (user_id, package_id, amount, type, created_at)
              VALUES ($1, $2, $3, 'daily_mining_income', CURRENT_TIMESTAMP)`,
-            [purchase.user_id, purchase.package_id, dailyEarning]
+            [purchase.user_id, purchase.package_id, dailyEarning],
           );
         } catch (txError) {
           console.error(`[Mining] Failed to record transaction:`, txError);
@@ -153,7 +156,7 @@ async function processDailyMiningEarnings() {
           const level1Commission = (dailyEarning * 10) / 100;
           await pool.query(
             "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-            [level1Commission, upline.level1]
+            [level1Commission, upline.level1],
           );
 
           await recordReferralBonus(
@@ -162,7 +165,7 @@ async function processDailyMiningEarnings() {
             level1Commission,
             1,
             "daily_referral_income",
-            purchase.package_id
+            purchase.package_id,
           );
 
           totalDistributed += level1Commission;
@@ -172,7 +175,7 @@ async function processDailyMiningEarnings() {
           const level2Commission = (dailyEarning * 3) / 100;
           await pool.query(
             "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-            [level2Commission, upline.level2]
+            [level2Commission, upline.level2],
           );
 
           await recordReferralBonus(
@@ -181,7 +184,7 @@ async function processDailyMiningEarnings() {
             level2Commission,
             2,
             "daily_referral_income",
-            purchase.package_id
+            purchase.package_id,
           );
 
           totalDistributed += level2Commission;
@@ -191,7 +194,7 @@ async function processDailyMiningEarnings() {
           const level3Commission = (dailyEarning * 2) / 100;
           await pool.query(
             "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-            [level3Commission, upline.level3]
+            [level3Commission, upline.level3],
           );
 
           await recordReferralBonus(
@@ -200,7 +203,7 @@ async function processDailyMiningEarnings() {
             level3Commission,
             3,
             "daily_referral_income",
-            purchase.package_id
+            purchase.package_id,
           );
 
           totalDistributed += level3Commission;
@@ -208,27 +211,30 @@ async function processDailyMiningEarnings() {
 
         processed++;
       } catch (error) {
-        console.error(`[Mining] Error processing purchase ${purchase.id}:`, error);
+        console.error(
+          `[Mining] Error processing purchase ${purchase.id}:`,
+          error,
+        );
         failedPurchases.push(purchase.id);
       }
     }
 
     console.log(
-      `[Mining] ✅ Processed ${processed} purchases, ${failedPurchases.length} failed, total distributed: ${totalDistributed} USDT`
+      `[Mining] ✅ Processed ${processed} purchases, ${failedPurchases.length} failed, total distributed: ${totalDistributed} USDT`,
     );
 
     // Run P2P trade expiry check
     console.log("[Mining] Running P2P trade expiry check...");
     const expiredTradeCount = await expireOverdueTrades();
     console.log(
-      `[Mining] ✅ P2P trade expiry complete. Expired: ${expiredTradeCount}`
+      `[Mining] ✅ P2P trade expiry complete. Expired: ${expiredTradeCount}`,
     );
 
     // Log the cron run
     await pool.query(
       `INSERT INTO cron_logs (process_type, process_date, purchases_processed, total_distributed, failed_count)
        VALUES ('daily_earnings', $1, $2, $3, $4)`,
-      [now.toISOString(), processed, totalDistributed, failedPurchases.length]
+      [now.toISOString(), processed, totalDistributed, failedPurchases.length],
     );
 
     console.log("[Mining] 🎉 Daily earnings cycle complete!");
@@ -241,7 +247,10 @@ async function processDailyMiningEarnings() {
       expiredTrades: expiredTradeCount,
     };
   } catch (error: any) {
-    console.error("[Mining] ❌ Error in daily earnings processing:", error.message);
+    console.error(
+      "[Mining] ❌ Error in daily earnings processing:",
+      error.message,
+    );
     throw error;
   }
 }

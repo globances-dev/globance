@@ -43,6 +43,7 @@ This guide covers deploying Globance on Netlify with Neon PostgreSQL database an
    ```
 
 **Alternative: Use psql script**
+
 ```bash
 for f in server/migrations/*.sql; do
   psql "postgresql://user:password@host.neon.tech/database?sslmode=require" -f "$f"
@@ -63,6 +64,7 @@ done
 ### 2.2 Configure Build Settings
 
 Netlify should auto-detect the build command from `netlify.toml`:
+
 - **Build command:** `pnpm install --no-frozen-lockfile && pnpm run build`
 - **Publish directory:** `dist/spa`
 - **Functions directory:** `netlify/functions`
@@ -132,6 +134,7 @@ VITE_PUBLIC_BUILDER_KEY = your-builder-io-key
 ### 5.2 Add Custom Header
 
 In the **Advanced** settings:
+
 1. Click "Add HTTP Header"
 2. **Header name:** `x-cron-secret`
 3. **Header value:** Your `CRON_SECRET` from Netlify environment
@@ -144,6 +147,7 @@ In the **Advanced** settings:
 4. Verify a cron_log entry appears in your database
 
 **View logs in Netlify:**
+
 1. Go to **Functions** tab in Netlify dashboard
 2. Click `runMining`
 3. View recent invocations
@@ -199,6 +203,7 @@ Register a test account - should receive a welcome email from SendGrid.
 ### 8.2 Database Monitoring
 
 Monitor your Neon database:
+
 1. Neon dashboard → Project
 2. Check:
    - Active connections
@@ -208,10 +213,12 @@ Monitor your Neon database:
 ### 8.3 Set Up Alerts
 
 **Cron Job Failures:**
+
 - CronJob.org will email if job fails 3 times in a row
 - Monitor the execution history
 
 **Netlify Build Failures:**
+
 - Netlify sends email notifications on build failures
 - Check **Notifications** settings in Netlify dashboard
 
@@ -220,6 +227,7 @@ Monitor your Neon database:
 ### Build Fails: "DATABASE_URL not set"
 
 **Solution:**
+
 1. Go to Netlify dashboard
 2. **Build & deploy** → **Environment**
 3. Verify `DATABASE_URL` is set
@@ -229,6 +237,7 @@ Monitor your Neon database:
 ### Functions Return 404
 
 **Solution:**
+
 1. Verify `netlify.toml` has correct functions directory
 2. Check that `netlify/functions/api.ts` exists
 3. Verify rewrite rule: `/api/*` → `/.netlify/functions/api/:splat`
@@ -237,6 +246,7 @@ Monitor your Neon database:
 ### Emails Not Sending
 
 **Solution:**
+
 1. Verify `SENDGRID_API_KEY` is correct in Netlify
 2. Check SendGrid sender is verified
 3. Review SendGrid Activity dashboard for bounces
@@ -246,6 +256,7 @@ Monitor your Neon database:
 ### Mining Cron Not Running
 
 **Solution:**
+
 1. Verify CronJob.org job is enabled
 2. Check job execution history on CronJob.org
 3. Test mining function manually (see Step 7.2)
@@ -255,6 +266,7 @@ Monitor your Neon database:
 ### Database Connection Timeout
 
 **Solution:**
+
 1. Check Neon database status in dashboard
 2. Verify connection string is correct
 3. Ensure IP allowlist is configured in Neon (if applicable)
@@ -277,15 +289,18 @@ Monitor your Neon database:
 ## Scaling Considerations
 
 **Connection Pool:**
+
 - Netlify Functions use optimized pool (max 5, min 0)
 - Consider increasing if frequent 429 errors
 
 **Database:**
+
 - Monitor Neon connections
 - Set up alerts for high connection count
 - Consider compute size if CPU-bound
 
 **Email Sending:**
+
 - SendGrid can handle high volume
 - Monitor quota usage
 - Set up alerts for bounce rate

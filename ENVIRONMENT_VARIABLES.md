@@ -5,12 +5,14 @@
 All of the following variables must be set in your Netlify environment:
 
 ### Database
+
 - **DATABASE_URL** (required)
   - Neon PostgreSQL connection string
   - Format: `postgresql://user:password@host.neon.tech/database?sslmode=require`
   - Get this from Neon dashboard → Project → Connection string
 
 ### Authentication & Security
+
 - **JWT_SECRET** (required)
   - Minimum 32 characters
   - Used to sign and verify JWT tokens
@@ -23,6 +25,7 @@ All of the following variables must be set in your Netlify environment:
   - Example: `your-secure-cron-secret-min-32-chars`
 
 ### Email Service
+
 - **SENDGRID_API_KEY** (required)
   - SendGrid API key for sending emails
   - Get this from SendGrid dashboard → Settings → API Keys
@@ -34,6 +37,7 @@ All of the following variables must be set in your Netlify environment:
   - Must be verified in SendGrid
 
 ### Payment Integration
+
 - **NOWPAYMENTS_API_KEY** (required)
   - NOWPayments API key for crypto payment processing
   - Get from NOWPayments dashboard
@@ -43,6 +47,7 @@ All of the following variables must be set in your Netlify environment:
   - Get from NOWPayments dashboard
 
 ### Application Settings
+
 - **ENVIRONMENT** (required)
   - Set to: `production`
   - Controls feature flags and logging
@@ -56,6 +61,7 @@ All of the following variables must be set in your Netlify environment:
   - Obtained from Builder.io dashboard
 
 ### Optional
+
 - **APP_URL** (optional)
   - Your Globance app URL
   - Used in email links
@@ -105,20 +111,24 @@ VITE_PUBLIC_BUILDER_KEY=your-builder-key
 ## Troubleshooting
 
 **Error: "DATABASE_URL not set"**
+
 - Check that DATABASE_URL is set in Netlify environment
 - Verify the connection string format
 - Test the connection: `psql "postgresql://..."` from terminal
 
 **Error: "SENDGRID_API_KEY is invalid"**
+
 - Verify the key starts with `SG.`
 - Check that the key hasn't expired in SendGrid dashboard
 - Ensure the email address is verified in SendGrid
 
 **Error: "JWT_SECRET too short"**
+
 - Minimum 32 characters required
 - Use a strong random string generator
 
 **Mining function not triggering**
+
 - Verify CRON_SECRET is set in Netlify
 - Check CronJob.org configuration
 - Verify the cron secret matches in both Netlify and CronJob.org settings

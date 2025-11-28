@@ -67,6 +67,7 @@ Globance has been migrated from Supabase + Replit to a modern, scalable serverle
   - User account management
 
 **Key Files:**
+
 - `client/` - React components and pages
 - `client/lib/api.ts` - API client wrapper
 - `client/hooks/` - Custom React hooks
@@ -77,11 +78,13 @@ Globance has been migrated from Supabase + Replit to a modern, scalable serverle
 **Technology:** Node.js 22 + Express + TypeScript
 
 #### Main API Function
+
 - **Path:** `netlify/functions/api.ts`
 - **Routes:** All `/api/*` endpoints
 - **Architecture:** Express server wrapped with serverless-http
 
 **API Endpoints:**
+
 ```
 /api/auth/*              - Authentication (register, login, password reset)
 /api/wallet/*            - Wallet operations (deposit, withdraw)
@@ -96,12 +99,14 @@ Globance has been migrated from Supabase + Replit to a modern, scalable serverle
 ```
 
 #### Mining Processor Function
+
 - **Path:** `netlify/functions/runMining.ts`
 - **Trigger:** External HTTP POST from CronJob.org
 - **Authentication:** `x-cron-secret` header validation
 - **Execution:** Once daily at 21:00 UTC
 
 **Responsibilities:**
+
 - Calculate daily mining earnings
 - Process referral commissions (10%, 3%, 2%)
 - Update user wallet balances
@@ -114,11 +119,13 @@ Globance has been migrated from Supabase + Replit to a modern, scalable serverle
 **Technology:** PostgreSQL 15+ on Neon
 
 **Connection Method:**
+
 - Pool size: 5 (optimized for serverless)
 - SSL: Required
 - Idle timeout: 30 seconds
 
 **Schema:**
+
 ```
 Tables:
   - users                      - User accounts and auth
@@ -137,6 +144,7 @@ Tables:
 ```
 
 **Migrations:**
+
 - Located in `server/migrations/*.sql`
 - Run once during initial setup
 - Updated sequentially for schema changes
@@ -146,11 +154,13 @@ Tables:
 **Technology:** SendGrid SMTP API
 
 **Configuration:**
+
 - API Key: Environment variable `SENDGRID_API_KEY`
 - Sender: Environment variable `SENDGRID_FROM_EMAIL`
 - Rate limit: 100 emails/second
 
 **Email Types:**
+
 1. Welcome email (registration)
 2. Email verification codes
 3. Password reset links
@@ -160,6 +170,7 @@ Tables:
 7. Referral notifications
 
 **Implementation:**
+
 - `server/utils/email.ts` - Email utility functions
 - Sent synchronously after database updates
 - Failures are logged but don't block operations
@@ -169,6 +180,7 @@ Tables:
 **Technology:** CronJob.org (external HTTP trigger)
 
 **Configuration:**
+
 - **URL:** `https://your-site/.netlify/functions/runMining`
 - **Schedule:** `0 21 * * *` (21:00 UTC daily)
 - **Method:** POST
@@ -176,6 +188,7 @@ Tables:
 - **Timeout:** 30 seconds
 
 **Execution Flow:**
+
 1. CronJob.org sends HTTP POST at 21:00 UTC
 2. Netlify receives request at `/runMining`
 3. Function validates `x-cron-secret` header
@@ -184,6 +197,7 @@ Tables:
 6. Returns success/failure response
 
 **Backup Job (optional):**
+
 - Set up second job at 21:05 UTC for redundancy
 - Same configuration as primary
 - Database has idempotency check to prevent double-processing
@@ -191,10 +205,12 @@ Tables:
 ### 6. Payment Processing
 
 **Supported Gateways:**
+
 - NOWPayments (crypto payments)
 - Tatum (webhook integration)
 
 **Flow:**
+
 1. User initiates deposit/withdrawal
 2. Payment gateway processes transaction
 3. Webhook sent to `/api/webhook/*`
@@ -205,6 +221,7 @@ Tables:
 ## Data Flow
 
 ### Registration Flow
+
 ```
 User Input → Frontend → /api/auth/register
             ↓
@@ -216,6 +233,7 @@ User Input → Frontend → /api/auth/register
 ```
 
 ### Mining Earnings Flow
+
 ```
 CronJob.org (21:00 UTC)
       ↓
@@ -235,6 +253,7 @@ CronJob.org (21:00 UTC)
 ```
 
 ### Deposit Flow
+
 ```
 User → Payment Gateway (NOWPayments)
        ↓
@@ -256,6 +275,7 @@ Credit user wallet
 ## Environment Variables
 
 ### Required (Production)
+
 - `DATABASE_URL` - Neon connection string
 - `JWT_SECRET` - Token signing secret (32+ chars)
 - `CRON_SECRET` - Mining trigger secret (32+ chars)
@@ -264,11 +284,13 @@ Credit user wallet
 - `NOWPAYMENTS_IPN_SECRET` - Webhook verification secret
 
 ### Configuration
+
 - `ENVIRONMENT` - `production` or `development`
 - `DEBUG_MODE` - `true` or `false`
 - `VITE_PUBLIC_BUILDER_KEY` - Builder.io public key
 
 ### Optional
+
 - `APP_URL` - Application URL (default: `https://globance.app`)
 - `SENDGRID_FROM_EMAIL` - Sender email (default: `support@globance.com`)
 - `DISABLE_SENDGRID` - Skip email sending (dev only)
@@ -276,17 +298,20 @@ Credit user wallet
 ## Scalability & Performance
 
 ### Horizontal Scaling
+
 - **Frontend:** Netlify CDN scales automatically (geo-distributed)
 - **Functions:** Netlify auto-scales per request (no configuration needed)
 - **Database:** Neon scales on usage (plan-based)
 
 ### Performance Optimization
+
 - **Connection pooling:** Reuses connections between function invocations
 - **Database indexing:** Indexed on frequently queried columns
 - **Caching:** Frontend caches API responses where appropriate
 - **Compression:** Gzip compression on assets and API responses
 
 ### Monitoring
+
 - **Frontend:** Netlify analytics + Sentry (error tracking)
 - **Functions:** Netlify function logs + Sentry
 - **Database:** Neon dashboard metrics
@@ -295,23 +320,27 @@ Credit user wallet
 ## Security Architecture
 
 ### Authentication
+
 - JWT tokens signed with `JWT_SECRET`
 - Tokens stored in localStorage (SPA)
 - Validated on every protected API call
 - Password hashing with bcrypt
 
 ### Authorization
+
 - Role-based access control (user/admin/moderator)
 - Admin routes require admin role + valid token
 - Webhook endpoints verify signatures
 
 ### API Security
+
 - Input validation on all endpoints
 - SQL injection prevention (parameterized queries)
 - CORS enabled for frontend domain only
 - Rate limiting (configurable per endpoint)
 
 ### Data Protection
+
 - Passwords hashed before storage
 - API keys stored as environment variables (not in code)
 - Sensitive data logged only in debug mode
@@ -320,11 +349,13 @@ Credit user wallet
 ## Disaster Recovery
 
 ### Backup Strategy
+
 - **Database:** Neon provides automatic backups (configurable retention)
 - **Code:** Git version control (GitHub)
 - **Secrets:** Netlify environment variables (encrypted at rest)
 
 ### Recovery Procedures
+
 1. **Database corruption:** Restore from Neon backup
 2. **Code issues:** Revert to previous git commit
 3. **Secrets compromise:** Rotate in Netlify dashboard
@@ -333,6 +364,7 @@ Credit user wallet
 ## Migration from Old Stack
 
 ### What Changed
+
 - **❌ Removed:** Supabase (auth + database)
 - **❌ Removed:** Replit (server hosting + internal cron)
 - **✅ Added:** Netlify Functions (serverless backend)
@@ -343,6 +375,7 @@ Credit user wallet
 - **✅ Kept:** NOWPayments (payment processing)
 
 ### Backward Compatibility
+
 - API endpoints remain unchanged
 - Database schema compatible
 - Authentication method unchanged (JWT)
@@ -362,16 +395,16 @@ Credit user wallet
 
 ## Appendix: Comparison Table
 
-| Aspect | Old Stack | New Stack |
-|--------|-----------|-----------|
-| Hosting | Replit | Netlify |
-| Database | Supabase | Neon |
-| Auth | Supabase Auth | JWT + Database |
-| Scheduler | Replit Cron | CronJob.org |
-| Email | SendGrid | SendGrid |
-| Payments | NOWPayments | NOWPayments |
-| Frontend | React/Builder.io | React/Builder.io |
-| Scaling | Manual | Automatic |
-| Cost | $25/month | Variable (usage-based) |
-| Performance | Good | Better (CDN + serverless) |
-| Uptime | 99.5% | 99.99% |
+| Aspect      | Old Stack        | New Stack                 |
+| ----------- | ---------------- | ------------------------- |
+| Hosting     | Replit           | Netlify                   |
+| Database    | Supabase         | Neon                      |
+| Auth        | Supabase Auth    | JWT + Database            |
+| Scheduler   | Replit Cron      | CronJob.org               |
+| Email       | SendGrid         | SendGrid                  |
+| Payments    | NOWPayments      | NOWPayments               |
+| Frontend    | React/Builder.io | React/Builder.io          |
+| Scaling     | Manual           | Automatic                 |
+| Cost        | $25/month        | Variable (usage-based)    |
+| Performance | Good             | Better (CDN + serverless) |
+| Uptime      | 99.5%            | 99.99%                    |
