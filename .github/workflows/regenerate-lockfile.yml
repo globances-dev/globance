@@ -5,37 +5,37 @@ on:
     branches:
       - quantum-zone
     paths:
-      - 'package.json'
+      - "package.json"
 
 jobs:
   regenerate-lockfile:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           ref: quantum-zone
-          
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 10.14.0
-          
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'pnpm'
-          
+          node-version: "22"
+          cache: "pnpm"
+
       - name: Regenerate pnpm lockfile
         run: pnpm install --no-frozen-lockfile
-        
+
       - name: Commit and push lockfile
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           if git diff --quiet pnpm-lock.yaml; then
             echo "No changes to lockfile"
           else
