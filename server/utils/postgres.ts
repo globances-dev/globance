@@ -60,10 +60,10 @@ export async function queryPostgres(sql: string, params: any[] = []) {
  * Get environment info for logging/debugging
  */
 export function getEnvironmentInfo() {
-  const isProduction = process.env.ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production';
+  const environment = process.env.ENVIRONMENT || 'development';
   return {
-    environment: isProduction ? 'PRODUCTION' : 'DEVELOPMENT',
-    database: isProduction ? 'DATABASE_URL_PROD' : 'DATABASE_URL_DEV',
-    mode: isProduction ? '🚀 Production' : '🔧 Development',
+    environment: environment.toUpperCase(),
+    database: 'Neon PostgreSQL (DATABASE_URL)',
+    mode: environment === 'production' ? '🚀 Production' : '🔧 Development',
   };
 }
