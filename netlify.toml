@@ -4,6 +4,9 @@
   publish = "dist/spa"
 
 [build.environment]
+  PNPM_FLAGS = "--no-frozen-lockfile"
+
+[build.environment]
   VITE_SUPABASE_URL = "https://nybdiogdfyvfklvovylw.supabase.co"
   ENVIRONMENT = "production"
   DEBUG_MODE = "false"
