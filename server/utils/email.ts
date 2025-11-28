@@ -2,7 +2,8 @@ import sgMail from '@sendgrid/mail';
 
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
 const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'support@globance.com';
-const APP_URL = process.env.APP_URL || 'https://globance.app';
+// APP_URL should be set in Netlify environment variables or defaults to production domain
+const APP_URL = process.env.APP_URL || process.env.PUBLIC_URL || 'https://globance.app';
 const FROM_NAME = 'Globance Support';
 
 if (SENDGRID_API_KEY) {
