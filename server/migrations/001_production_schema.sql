@@ -2,7 +2,7 @@
 -- GLOBANCE PRODUCTION DATABASE SCHEMA
 -- ========================================
 -- This comprehensive migration creates all tables needed for production
--- Run this ONCE in your production Supabase project named "globance"
+-- Run this ONCE on your production Neon PostgreSQL database
 
 -- ========================================
 -- 1. USERS TABLE
