@@ -4,36 +4,42 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Globance - Premium Cloud Mining Platform</title>
-    
+
     <!-- Favicon & App Icons -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="shortcut icon" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/globance-icon.svg" />
-    
+
     <!-- Theme & Branding -->
     <meta name="theme-color" content="#D4AF37" />
     <meta name="msapplication-TileColor" content="#0A0A0A" />
-    
+
     <!-- Primary Meta Tags -->
     <meta name="title" content="Globance - Premium Cloud Mining Platform" />
     <meta name="description" content="" />
     <meta name="author" content="Globance" />
-    
+
     <!-- Open Graph / Facebook / Telegram -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://globance.app/" />
     <meta property="og:site_name" content="Globance" />
-    <meta property="og:title" content="Globance - Premium Cloud Mining Platform" />
+    <meta
+      property="og:title"
+      content="Globance - Premium Cloud Mining Platform"
+    />
     <meta property="og:description" content="" />
     <meta property="og:image" content="https://globance.app/og-image.svg" />
     <meta property="og:image:type" content="image/svg+xml" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    
+
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:url" content="https://globance.app/" />
-    <meta name="twitter:title" content="Globance - Premium Cloud Mining Platform" />
+    <meta
+      name="twitter:title"
+      content="Globance - Premium Cloud Mining Platform"
+    />
     <meta name="twitter:description" content="" />
     <meta name="twitter:image" content="https://globance.app/og-image.svg" />
 
@@ -44,17 +50,18 @@
   <body>
     <!-- TELEGRAM WEBVIEW ANDROID BACK BUTTON FIX (v6.0+ without BackButton API) -->
     <script>
-      window.addEventListener("DOMContentLoaded", function() {
+      window.addEventListener("DOMContentLoaded", function () {
         // Initialize history state for back button interception
         history.pushState({ keyboardLayer: true }, "");
 
-        window.addEventListener("popstate", function(event) {
+        window.addEventListener("popstate", function (event) {
           var activeElement = document.activeElement;
 
           // Check if an input or textarea is currently focused
           if (
             activeElement &&
-            (activeElement.tagName === "INPUT" || activeElement.tagName === "TEXTAREA")
+            (activeElement.tagName === "INPUT" ||
+              activeElement.tagName === "TEXTAREA")
           ) {
             // 1st back press: Hide keyboard (blur the input)
             activeElement.blur();
@@ -74,7 +81,7 @@
 
     <!-- TELEGRAM WEBAPP INITIALIZATION -->
     <script>
-      window.addEventListener("DOMContentLoaded", function() {
+      window.addEventListener("DOMContentLoaded", function () {
         var tg = window.Telegram && window.Telegram.WebApp;
 
         if (tg) {
