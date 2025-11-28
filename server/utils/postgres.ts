@@ -1,17 +1,17 @@
-import { Pool } from "pg";
+import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 
-let pool: Pool | null = null;
+let client: NeonQueryFunction | null = null;
 
 /**
- * Get the PostgreSQL connection pool
- * Uses DATABASE_URL environment variable (set in Netlify and local development)
+ * Get the Neon PostgreSQL client for serverless functions
+ * Uses Neon serverless client which is optimized for Netlify Functions
  */
 export function getPostgresPool() {
-  if (pool) return pool;
-  return initializePool();
+  if (client) return { query: client };
+  return initializeClient();
 }
 
-function initializePool() {
+function initializeClient() {
   try {
     const databaseUrl = process.env.DATABASE_URL;
 
@@ -19,26 +19,14 @@ function initializePool() {
       throw new Error("DATABASE_URL environment variable not set");
     }
 
-    console.log("[PostgreSQL] 🔧 Initializing database connection...");
-    pool = new Pool({
-      connectionString: databaseUrl,
-      ssl: {
-        rejectUnauthorized: false,
-      },
-      // Optimize for serverless: reuse connections between invocations
-      max: 5,
-      min: 0,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
-    });
+    console.log("[PostgreSQL] 🔧 Initializing Neon serverless client...");
+    client = neon(databaseUrl);
 
-    pool.on("error", (err) => {
-      console.error("[PostgreSQL] ❌ Pool error:", err);
-      pool = null;
-    });
-
-    console.log("[PostgreSQL] ✓ Database pool created");
-    return pool;
+    console.log("[PostgreSQL] ✓ Neon serverless client initialized");
+    
+    return {
+      query: client,
+    };
   } catch (error: any) {
     console.error(
       "[PostgreSQL] ✗ Failed to initialize database:",
@@ -48,15 +36,26 @@ function initializePool() {
   }
 }
 
+/**
+ * Execute a query using Neon serverless client
+ */
 export async function queryPostgres(sql: string, params: any[] = []) {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(sql, params);
-    return result.rows;
+    const client = getPostgresPool().query;
+    const result = await client(sql, params);
+    return Array.isArray(result) ? result : result?.rows || [];
   } catch (error: any) {
     console.error("[PostgreSQL] Query error:", error.message);
     throw error;
   }
+}
+
+/**
+ * Execute a query and return a single row
+ */
+export async function queryPostgresSingle(sql: string, params: any[] = []) {
+  const rows = await queryPostgres(sql, params);
+  return rows.length > 0 ? rows[0] : null;
 }
 
 /**
@@ -66,7 +65,7 @@ export function getEnvironmentInfo() {
   const environment = process.env.ENVIRONMENT || "development";
   return {
     environment: environment.toUpperCase(),
-    database: "Neon PostgreSQL (DATABASE_URL)",
+    database: "Neon PostgreSQL (Serverless)",
     mode: environment === "production" ? "🚀 Production" : "🔧 Development",
   };
 }
