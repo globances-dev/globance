@@ -24,12 +24,8 @@ export function createServer() {
     console.error("[Server] Database initialization error:", error.message);
   });
 
-  // Initialize internal cron scheduler for mining payouts
-  try {
-    initializeScheduler();
-  } catch (error: any) {
-    console.error("[Server] Failed to initialize scheduler:", error.message);
-  }
+  // Note: Cron scheduler has been moved to external CronJob.org
+  // Mining payouts are now triggered via Netlify Functions
 
   // Middleware
   app.use(cors());
