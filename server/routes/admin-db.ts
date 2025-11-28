@@ -133,7 +133,7 @@ router.get(
         return res.status(400).json({ error: "Invalid table name" });
       }
       
-      const pool = getProductionPool();
+      const pool = getPostgresPool();
 
       const result = await pool.query(
         `
@@ -192,7 +192,7 @@ router.get(
         return res.status(400).json({ error: "Invalid table name" });
       }
 
-      const pool = getProductionPool();
+      const pool = getPostgresPool();
       const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
 
       let query = `SELECT * FROM "${tableName}"`;
@@ -260,7 +260,7 @@ router.put(
         }
       }
 
-      const pool = getProductionPool();
+      const pool = getPostgresPool();
 
       const setClauses: string[] = [];
       const values: any[] = [];
@@ -318,7 +318,7 @@ router.delete(
         return res.status(400).json({ error: "Invalid primary key column" });
       }
 
-      const pool = getProductionPool();
+      const pool = getPostgresPool();
 
       const result = await pool.query(
         `DELETE FROM "${tableName}" WHERE "${primaryKey}" = $1 RETURNING *`,
@@ -397,7 +397,7 @@ router.post(
         }
       }
 
-      const pool = getProductionPool();
+      const pool = getPostgresPool();
       const result = await pool.query(sql);
 
       console.log(`[AdminDB] Custom query executed by admin ${req.user.id}: ${sql.substring(0, 100)}`);
