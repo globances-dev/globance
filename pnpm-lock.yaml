@@ -1,14 +1,13 @@
-lockfileVersion: '9.0'
+lockfileVersion: "9.0"
 
 settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
 importers:
-
   .:
     dependencies:
-      '@sendgrid/mail':
+      "@sendgrid/mail":
         specifier: ^8.1.6
         version: 8.1.6
       bcryptjs:
@@ -39,127 +38,127 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
-      '@hookform/resolvers':
+      "@hookform/resolvers":
         specifier: ^5.2.1
         version: 5.2.2(react-hook-form@7.66.1(react@18.3.1))
-      '@radix-ui/react-accordion':
+      "@radix-ui/react-accordion":
         specifier: ^1.2.11
         version: 1.2.12(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-alert-dialog':
+      "@radix-ui/react-alert-dialog":
         specifier: ^1.1.14
         version: 1.1.15(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-aspect-ratio':
+      "@radix-ui/react-aspect-ratio":
         specifier: ^1.1.7
         version: 1.1.8(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-avatar':
+      "@radix-ui/react-avatar":
         specifier: ^1.1.10
         version: 1.1.11(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-checkbox':
+      "@radix-ui/react-checkbox":
         specifier: ^1.3.2
         version: 1.3.3(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-collapsible':
+      "@radix-ui/react-collapsible":
         specifier: ^1.1.11
         version: 1.1.12(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-context-menu':
+      "@radix-ui/react-context-menu":
         specifier: ^2.2.15
         version: 2.2.16(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-dialog':
+      "@radix-ui/react-dialog":
         specifier: ^1.1.14
         version: 1.1.15(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-dropdown-menu':
+      "@radix-ui/react-dropdown-menu":
         specifier: ^2.1.15
         version: 2.1.16(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-hover-card':
+      "@radix-ui/react-hover-card":
         specifier: ^1.1.14
         version: 1.1.15(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-label':
+      "@radix-ui/react-label":
         specifier: ^2.1.7
         version: 2.1.8(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-menubar':
+      "@radix-ui/react-menubar":
         specifier: ^1.1.15
         version: 1.1.16(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-navigation-menu':
+      "@radix-ui/react-navigation-menu":
         specifier: ^1.2.13
         version: 1.2.14(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-popover':
+      "@radix-ui/react-popover":
         specifier: ^1.1.14
         version: 1.1.15(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-progress':
+      "@radix-ui/react-progress":
         specifier: ^1.1.7
         version: 1.1.8(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-radio-group':
+      "@radix-ui/react-radio-group":
         specifier: ^1.3.7
         version: 1.3.8(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-scroll-area':
+      "@radix-ui/react-scroll-area":
         specifier: ^1.2.9
         version: 1.2.10(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-select':
+      "@radix-ui/react-select":
         specifier: ^2.2.5
         version: 2.2.6(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-separator':
+      "@radix-ui/react-separator":
         specifier: ^1.1.7
         version: 1.1.8(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-slider':
+      "@radix-ui/react-slider":
         specifier: ^1.3.5
         version: 1.3.6(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-slot':
+      "@radix-ui/react-slot":
         specifier: ^1.2.3
         version: 1.2.4(@types/react@18.3.27)(react@18.3.1)
-      '@radix-ui/react-switch':
+      "@radix-ui/react-switch":
         specifier: ^1.2.5
         version: 1.2.6(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-tabs':
+      "@radix-ui/react-tabs":
         specifier: ^1.1.12
         version: 1.1.13(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-toast':
+      "@radix-ui/react-toast":
         specifier: ^1.2.14
         version: 1.2.15(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-toggle':
+      "@radix-ui/react-toggle":
         specifier: ^1.1.9
         version: 1.1.10(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-toggle-group':
+      "@radix-ui/react-toggle-group":
         specifier: ^1.1.10
         version: 1.1.11(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-tooltip':
+      "@radix-ui/react-tooltip":
         specifier: ^1.2.7
         version: 1.2.8(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@react-three/drei':
+      "@react-three/drei":
         specifier: ^9.122.0
         version: 9.122.0(@react-three/fiber@8.18.0(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.176.0))(@types/react@18.3.27)(@types/three@0.176.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.176.0)(use-sync-external-store@1.6.0(react@18.3.1))
-      '@react-three/fiber':
+      "@react-three/fiber":
         specifier: ^8.18.0
         version: 8.18.0(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.176.0)
-      '@swc/core':
+      "@swc/core":
         specifier: ^1.13.3
         version: 1.15.3
-      '@tailwindcss/typography':
+      "@tailwindcss/typography":
         specifier: ^0.5.16
         version: 0.5.19(tailwindcss@3.4.18(tsx@4.20.6))
-      '@tanstack/react-query':
+      "@tanstack/react-query":
         specifier: ^5.84.2
         version: 5.90.11(react@18.3.1)
-      '@types/cors':
+      "@types/cors":
         specifier: ^2.8.19
         version: 2.8.19
-      '@types/express':
+      "@types/express":
         specifier: ^5.0.3
         version: 5.0.5
-      '@types/node':
+      "@types/node":
         specifier: ^24.2.1
         version: 24.10.1
-      '@types/pg':
+      "@types/pg":
         specifier: ^8.15.6
         version: 8.15.6
-      '@types/react':
+      "@types/react":
         specifier: ^18.3.23
         version: 18.3.27
-      '@types/react-dom':
+      "@types/react-dom":
         specifier: ^18.3.7
         version: 18.3.7(@types/react@18.3.27)
-      '@types/three':
+      "@types/three":
         specifier: ^0.176.0
         version: 0.176.0
-      '@vitejs/plugin-react-swc':
+      "@vitejs/plugin-react-swc":
         specifier: ^4.0.0
         version: 4.2.2(vite@7.2.4(@types/node@24.10.1)(jiti@1.21.7)(tsx@4.20.6))
       autoprefixer:
@@ -260,17 +259,28 @@ importers:
         version: 3.2.4(@types/node@24.10.1)(jiti@1.21.7)(tsx@4.20.6)
 
 packages:
+  "@alloc/quick-lru@5.2.0":
+    resolution:
+      {
+        integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==,
+      }
+    engines: { node: ">=10" }
 
-  '@alloc/quick-lru@5.2.0':
-    resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
-    engines: {node: '>=10'}
+  "@babel/runtime@7.28.4":
+    resolution:
+      {
+        integrity: sha512-Q/N6JNWvIvPnLDvjlE1OUBLPQHH6l3CltCEsHIujp45zQUSSh8K+gHnaEX45yAT1nyngnINhvWtzN+Nb9D8RAQ==,
+      }
+    engines: { node: ">=6.9.0" }
 
-  '@babel/runtime@7.28.4':
-    resolution: {integrity: sha512-Q/N6JNWvIvPnLDvjlE1OUBLPQHH6l3CltCEsHIujp45zQUSSh8K+gHnaEX45yAT1nyngnINhvWtzN+Nb9D8RAQ==}
-    engines: {node: '>=6.9.0'}
+  "@date-fns/tz@1.4.1":
+    resolution:
+      {
+        integrity: sha512-P5LUNhtbj6YfI3iJjw5EL9eUAG6OitD0W3fWQcpQjDRc/QIsL0tRNuO1PcDvPccWL1fSTXXdE1ds+l95DV/OFA==,
+      }
 
-  '@date-fns/tz@1.4.1':
-    resolution: {integrity: sha512-P5LUNhtbj6YfI3iJjw5EL9eUAG6OitD0W3fWQcpQjDRc/QIsL0tRNuO1PcDvPccWL1fSTXXdE1ds+l95DV/OFA==}
-
-  '@dimforge/rapier3d-compat@0.12.0':
-    resolution: {integrity: sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow==}
+  "@dimforge/rapier3d-compat@0.12.0":
+    resolution:
+      {
+        integrity: sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow==,
+      }
