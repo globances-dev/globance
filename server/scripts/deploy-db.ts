@@ -11,18 +11,16 @@ async function deployDatabase() {
     console.log('='.repeat(50));
 
     // Check environment
-    const isProduction = process.env.DATABASE_URL_PROD;
-    const isDevelopment = process.env.DATABASE_URL_DEV;
     const database = process.env.DATABASE_URL;
 
-    if (!isProduction && !database) {
-      console.error('❌ ERROR: DATABASE_URL_PROD or DATABASE_URL not configured');
-      console.error('Please set DATABASE_URL_PROD in your Replit secrets');
+    if (!database) {
+      console.error('❌ ERROR: DATABASE_URL not configured');
+      console.error('Please set DATABASE_URL in your environment variables (Netlify secrets or .env)');
       process.exit(1);
     }
 
-    const dbUrl = isProduction ? process.env.DATABASE_URL_PROD : process.env.DATABASE_URL;
-    const targetDb = isProduction ? 'PRODUCTION' : 'DEVELOPMENT';
+    const dbUrl = database;
+    const targetDb = 'Neon PostgreSQL';
 
     console.log(`📍 Target: ${targetDb} Database`);
     console.log(`🔗 Database: ${dbUrl?.split('@')[1]?.split('/')[0] || 'unknown'}`);
