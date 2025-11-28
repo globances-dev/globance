@@ -42,71 +42,46 @@
   </head>
 
   <body>
-    <!-- TELEGRAM WEBAPP OFFICIAL BACK BUTTON FIX - MUST BE FIRST -->
+    <!-- TELEGRAM WEBVIEW ANDROID BACK BUTTON FIX (v6.0+ without BackButton API) -->
     <script>
-      document.addEventListener("DOMContentLoaded", function() {
-        var tg = window.Telegram && window.Telegram.WebApp;
+      window.addEventListener("DOMContentLoaded", function() {
+        // Initialize history state for back button interception
+        history.pushState({ keyboardLayer: true }, "");
 
-        if (!tg) {
-          console.log("[DEBUG] Telegram WebApp object not detected.");
-          return;
-        }
+        window.addEventListener("popstate", function(event) {
+          var activeElement = document.activeElement;
 
-        console.log("[DEBUG] Telegram WebApp detected — enabling back button fix.");
-        console.log("[DEBUG] Telegram WebApp version:", tg.version);
-        console.log("[DEBUG] BackButton available:", !!tg.BackButton);
+          // Check if an input or textarea is currently focused
+          if (
+            activeElement &&
+            (activeElement.tagName === "INPUT" || activeElement.tagName === "TEXTAREA")
+          ) {
+            // 1st back press: Hide keyboard (blur the input)
+            activeElement.blur();
 
-        // Initialize Telegram WebApp
-        tg.ready();
-        tg.expand();
+            // Restore the history state to prevent actual navigation
+            history.pushState({ keyboardLayer: true }, "");
 
-        // Show Telegram's built-in back button
-        if (tg.BackButton && typeof tg.BackButton.show === 'function') {
-          tg.BackButton.show();
-          console.log("[DEBUG] Telegram BackButton.show() called");
-        } else {
-          console.log("[DEBUG] BackButton.show() not available in this version");
-        }
-
-        // When Telegram back button is clicked → blur input instead of navigating
-        if (tg.BackButton && typeof tg.BackButton.onClick === 'function') {
-          tg.BackButton.onClick(function() {
-            var active = document.activeElement;
-
-            if (active && ["INPUT", "TEXTAREA"].includes(active.tagName)) {
-              console.log("[DEBUG] Telegram back button: blur input");
-              active.blur();
-              return;
-            }
-
-            // Only navigate back if keyboard is already closed
-            console.log("[DEBUG] Telegram back button: navigate back");
-            window.history.back();
-          });
-          console.log("[DEBUG] BackButton.onClick() handler registered");
-        } else {
-          console.log("[DEBUG] BackButton.onClick() not available in this version");
-        }
-
-        // OPTIONAL: make hardware back simulate Telegram back button behavior
-        window.addEventListener("popstate", function() {
-          var active = document.activeElement;
-
-          if (active && ["INPUT", "TEXTAREA"].includes(active.tagName)) {
-            console.log("[DEBUG] Hardware back triggered → blur input");
-            active.blur();
-            history.pushState(null, null, "");
+            // Prevent navigation - the next back press will trigger actual navigation
             return;
           }
 
-          // Telegram back button handles navigation
-          console.log("[DEBUG] Hardware back: deferring to Telegram back behavior");
+          // No keyboard is open - allow normal back navigation
+          history.back();
         });
+      });
+    </script>
 
-        // Create initial history state
-        history.pushState(null, null, "");
-        console.log("[DEBUG] Initial history state created");
-        console.log("[DEBUG] Back button fix fully initialized");
+    <!-- TELEGRAM WEBAPP INITIALIZATION -->
+    <script>
+      window.addEventListener("DOMContentLoaded", function() {
+        var tg = window.Telegram && window.Telegram.WebApp;
+
+        if (tg) {
+          console.log("[Telegram] WebApp initialized - version:", tg.version);
+          tg.ready();
+          tg.expand();
+        }
       });
     </script>
 
