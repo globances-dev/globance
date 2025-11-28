@@ -1,36 +1,11 @@
 import { Router, Response } from "express";
-import { Pool } from "pg";
 import { verifyToken } from "../utils/jwt";
 import { getPostgresPool } from "../utils/postgres";
 
 const router = Router();
 
-let productionPool: Pool | null = null;
 let validTablesCache: Set<string> | null = null;
 let tableColumnsCache: Map<string, Set<string>> = new Map();
-
-function getProductionPool(): Pool {
-  if (productionPool) return productionPool;
-
-  const databaseUrl = process.env.DATABASE_URL_PROD;
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL_PROD not configured");
-  }
-
-  productionPool = new Pool({
-    connectionString: databaseUrl,
-    ssl: { rejectUnauthorized: false },
-  });
-
-  productionPool.on("error", (err) => {
-    console.error("[AdminDB] Production pool error:", err);
-    productionPool = null;
-    validTablesCache = null;
-    tableColumnsCache.clear();
-  });
-
-  return productionPool;
-}
 
 async function getValidTables(): Promise<Set<string>> {
   if (validTablesCache) return validTablesCache;
