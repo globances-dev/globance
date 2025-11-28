@@ -9,13 +9,13 @@ let tableColumnsCache: Map<string, Set<string>> = new Map();
 
 async function getValidTables(): Promise<Set<string>> {
   if (validTablesCache) return validTablesCache;
-  
-  const pool = getProductionPool();
+
+  const pool = getPostgresPool();
   const result = await pool.query(`
-    SELECT table_name FROM information_schema.tables 
+    SELECT table_name FROM information_schema.tables
     WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
   `);
-  
+
   validTablesCache = new Set(result.rows.map(r => r.table_name));
   return validTablesCache;
 }
@@ -24,13 +24,13 @@ async function getValidColumns(tableName: string): Promise<Set<string>> {
   if (tableColumnsCache.has(tableName)) {
     return tableColumnsCache.get(tableName)!;
   }
-  
-  const pool = getProductionPool();
+
+  const pool = getPostgresPool();
   const result = await pool.query(`
-    SELECT column_name FROM information_schema.columns 
+    SELECT column_name FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = $1
   `, [tableName]);
-  
+
   const columns = new Set(result.rows.map(r => r.column_name));
   tableColumnsCache.set(tableName, columns);
   return columns;
