@@ -11,7 +11,9 @@
   PNPM_FLAGS = "--no-frozen-lockfile"
 
 # Required environment variables (set in Netlify dashboard):
-# - DATABASE_URL: Neon PostgreSQL connection string
+# - SUPABASE_URL: Supabase project URL (https://xxx.supabase.co)
+# - SUPABASE_ANON_KEY: Supabase anonymous key
+# - SUPABASE_SERVICE_ROLE_KEY: Supabase service role key
 # - SENDGRID_API_KEY: SendGrid API key for email service
 # - JWT_SECRET: Secret for JWT token signing
 # - CRON_SECRET: Secret for CronJob.org mining trigger verification
