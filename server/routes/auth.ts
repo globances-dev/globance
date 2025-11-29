@@ -295,13 +295,14 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
   try {
     const { email } = z.object({ email: z.string().email() }).parse(req.body);
 
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT id, email FROM users WHERE email = $1",
-      [email]
-    );
+    const supabase = getSupabaseAdmin();
+    const { data: users } = await supabase
+      .from("users")
+      .select("id, email")
+      .eq("email", email)
+      .limit(1);
 
-    if (!result.rows || result.rows.length === 0) {
+    if (!users || users.length === 0) {
       // Don't leak whether email exists - always return success
       return res.json({
         success: true,
@@ -309,7 +310,7 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
       });
     }
 
-    const user = result.rows[0];
+    const user = users[0];
     const resetToken = generateResetToken();
     const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hour expiration
 
@@ -317,11 +318,18 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
 
     // Store token in database
     try {
-      await pool.query(
-        `INSERT INTO password_reset_tokens (user_id, token, expires_at)
-         VALUES ($1, $2, $3)`,
-        [user.id, resetToken, expiresAt.toISOString()]
-      );
+      const { error } = await supabase
+        .from("password_reset_tokens")
+        .insert({
+          user_id: user.id,
+          token: resetToken,
+          expires_at: expiresAt.toISOString(),
+        });
+
+      if (error) {
+        throw error;
+      }
+
       console.log("[FORGOT PASSWORD] Token stored successfully");
     } catch (tokenError: any) {
       console.error("[FORGOT PASSWORD] Token storage error:", tokenError.message);
@@ -333,7 +341,7 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
 
     // Send email
     const emailSent = await sendPasswordResetEmail(email, resetLink);
-    
+
     if (!emailSent) {
       console.error("[FORGOT PASSWORD] Failed to send reset email to:", email);
       return res.status(500).json({ error: "Failed to send reset email" });
