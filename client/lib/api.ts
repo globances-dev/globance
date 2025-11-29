@@ -26,16 +26,33 @@ async function apiCall(endpoint: string, options: RequestOptions = {}) {
 
     if (!response.ok) {
       let errorMessage = 'API request failed';
+      const responseText = await response.text();
+
       try {
-        const error = await response.json();
-        errorMessage = error.error || error.message || `Server error: ${response.status}`;
+        const error = responseText ? JSON.parse(responseText) : null;
+        errorMessage =
+          (error && (error.error || error.message)) ||
+          errorMessage;
       } catch {
-        errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        // Ignore JSON parse errors and fall through to text handling
       }
+
+      if (errorMessage === 'API request failed') {
+        errorMessage =
+          responseText.trim() ||
+          `Server error: ${response.status}${
+            response.statusText ? ` ${response.statusText}` : ''
+          }`;
+      }
+
       throw new Error(errorMessage);
     }
 
-    return response.json();
+    if (response.headers.get('content-type')?.includes('application/json')) {
+      return response.json();
+    }
+
+    throw new Error('Unexpected response format from server');
   } catch (error) {
     if (error instanceof Error) {
       throw error;
