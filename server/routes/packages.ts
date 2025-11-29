@@ -347,4 +347,7 @@ router.get(
   },
 );
 
-export default router;
+const packageRoutes = router;
+
+export { packageRoutes };
+export default packageRoutes;
