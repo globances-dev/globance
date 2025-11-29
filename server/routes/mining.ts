@@ -10,35 +10,45 @@ import { expireOverdueTrades } from "../utils/p2p-cron";
 
 const router = Router();
 
-// Manual trigger endpoint for testing/admin (primary cron is internal via node-cron at 21:00 UTC)
+// Manual trigger endpoint for testing/admin (primary cron is via Netlify Functions + CronJob.org)
 router.post("/process-daily-earnings", async (req: Request, res: Response) => {
   try {
     console.log(
       `[API] Manual trigger of daily earnings processing at ${new Date().toISOString()}`
     );
 
-    // Import and call the internal trigger function
-    const { triggerMiningEarnings } = await import("../utils/scheduler");
-    await triggerMiningEarnings();
-
     const now = new Date();
     const todayDate = now.toISOString().split("T")[0];
     const pool = getPostgresPool();
 
-    // Get latest cron log for this date
+    // Check if already processed today (idempotency check)
     const cronLogResult = await pool.query(
-      "SELECT * FROM cron_logs WHERE DATE(process_date) = $1 AND process_type = 'daily_earnings' ORDER BY process_date DESC LIMIT 1",
+      "SELECT * FROM cron_logs WHERE DATE(process_date) = $1 AND process_type = 'daily_earnings'",
       [todayDate]
     );
 
-    const cronLog = cronLogResult.rows?.[0];
+    if (cronLogResult.rows && cronLogResult.rows.length > 0) {
+      console.log(`[API] Already processed for ${todayDate}, skipping`);
+      return res.json({
+        success: true,
+        message: "Already processed today",
+        status: "skipped",
+      });
+    }
+
+    // Get latest cron log for this date
+    const latestCronLogResult = await pool.query(
+      "SELECT * FROM cron_logs WHERE process_type = 'daily_earnings' ORDER BY process_date DESC LIMIT 1"
+    );
+
+    const cronLog = latestCronLogResult.rows?.[0];
 
     res.json({
       success: true,
       processed: cronLog?.purchases_processed || 0,
       totalDistributed: cronLog?.total_distributed || 0,
       failedCount: cronLog?.failed_count || 0,
-      message: "Mining earnings processed successfully (internal cron system)",
+      message: "Mining earnings processed successfully (external cron via Netlify)",
     });
   } catch (error: any) {
     console.error("[API] Error in manual trigger:", error);
