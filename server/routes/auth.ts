@@ -33,15 +33,21 @@ router.post("/register", async (req: Request, res: Response) => {
     const data = RegisterSchema.parse(req.body);
     console.log("[Auth] Validation passed for:", data.email);
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseAdmin();
 
     // Check if user exists
-    const existingResult = await pool.query(
-      "SELECT id FROM users WHERE email = $1",
-      [data.email]
-    );
+    const { data: existingUsers, error: existingError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", data.email)
+      .limit(1);
 
-    if (existingResult.rows && existingResult.rows.length > 0) {
+    if (existingError) {
+      console.error("[Auth] Database error checking existing user:", existingError);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (existingUsers && existingUsers.length > 0) {
       return res.status(400).json({ error: "Email already registered" });
     }
 
@@ -52,46 +58,71 @@ router.post("/register", async (req: Request, res: Response) => {
     // Check referrer if provided
     let refById: string | null = null;
     if (data.ref_by) {
-      const referrerResult = await pool.query(
-        "SELECT id FROM users WHERE username = $1",
-        [data.ref_by]
-      );
+      const { data: referrers } = await supabase
+        .from("users")
+        .select("id")
+        .eq("ref_code", data.ref_by)
+        .limit(1);
 
-      if (referrerResult.rows && referrerResult.rows.length > 0) {
-        refById = referrerResult.rows[0].id;
+      if (referrers && referrers.length > 0) {
+        refById = referrers[0].id;
       }
     }
 
     // Create user with referral code
-    const userResult = await pool.query(
-      `INSERT INTO users (email, password_hash, username, verified, referral_code)
-       VALUES ($1, $2, $3, false, $4)
-       RETURNING id, email, username, referral_code`,
-      [data.email, passwordHash, data.full_name, refCode]
-    );
+    const { data: userResult, error: userError } = await supabase
+      .from("users")
+      .insert({
+        email: data.email,
+        password_hash: passwordHash,
+        full_name: data.full_name,
+        ref_code: refCode,
+        ref_by: refById,
+        is_verified: false,
+        current_rank: "Bronze",
+      })
+      .select("id, email, full_name, ref_code");
 
-    if (!userResult.rows || userResult.rows.length === 0) {
+    if (userError) {
+      console.error("[Auth] Error creating user:", userError);
       return res.status(400).json({ error: "Failed to create user" });
     }
 
-    const newUser = userResult.rows[0];
+    if (!userResult || userResult.length === 0) {
+      return res.status(400).json({ error: "Failed to create user" });
+    }
+
+    const newUser = userResult[0];
     console.log("[Auth] User created:", newUser.id);
 
     // Create wallet
-    await pool.query(
-      `INSERT INTO wallets (user_id, usdt_balance)
-       VALUES ($1, 0)`,
-      [newUser.id]
-    );
+    const { error: walletError } = await supabase
+      .from("wallets")
+      .insert({
+        user_id: newUser.id,
+        usdt_balance: 0,
+        escrow_balance: 0,
+        total_earned: 0,
+        total_referral_earned: 0,
+      });
+
+    if (walletError) {
+      console.error("[Auth] Error creating wallet:", walletError);
+    }
 
     // Create permanent deposit addresses for TRC20 and BEP20
     try {
       const trc20Address = await createPermanentDepositAddress(newUser.id, 'TRC20');
-      await pool.query(
-        `INSERT INTO deposit_addresses (user_id, network, address, provider, provider_wallet_id, is_active)
-         VALUES ($1, $2, $3, $4, $5, true)`,
-        [newUser.id, 'TRC20', trc20Address.address, 'nowpayments', trc20Address.paymentId]
-      );
+      await supabase
+        .from("deposit_addresses")
+        .insert({
+          user_id: newUser.id,
+          network: 'TRC20',
+          address: trc20Address.address,
+          provider: 'nowpayments',
+          provider_wallet_id: trc20Address.paymentId,
+          is_active: true,
+        });
       console.log(`[NOWPayments] Created permanent TRC20 address for user ${newUser.id}`);
     } catch (addressError: any) {
       console.error('[NOWPayments] TRC20 address creation error:', addressError);
@@ -99,11 +130,16 @@ router.post("/register", async (req: Request, res: Response) => {
 
     try {
       const bep20Address = await createPermanentDepositAddress(newUser.id, 'BEP20');
-      await pool.query(
-        `INSERT INTO deposit_addresses (user_id, network, address, provider, provider_wallet_id, is_active)
-         VALUES ($1, $2, $3, $4, $5, true)`,
-        [newUser.id, 'BEP20', bep20Address.address, 'nowpayments', bep20Address.paymentId]
-      );
+      await supabase
+        .from("deposit_addresses")
+        .insert({
+          user_id: newUser.id,
+          network: 'BEP20',
+          address: bep20Address.address,
+          provider: 'nowpayments',
+          provider_wallet_id: bep20Address.paymentId,
+          is_active: true,
+        });
       console.log(`[NOWPayments] Created permanent BEP20 address for user ${newUser.id}`);
     } catch (addressError: any) {
       console.error('[NOWPayments] BEP20 address creation error:', addressError);
@@ -129,9 +165,9 @@ router.post("/register", async (req: Request, res: Response) => {
       user: {
         id: newUser.id,
         email: newUser.email,
-        full_name: newUser.username,
+        full_name: newUser.full_name,
         current_rank: "Bronze",
-        ref_code: newUser.referral_code,
+        ref_code: newUser.ref_code,
       },
     });
   } catch (error: any) {
