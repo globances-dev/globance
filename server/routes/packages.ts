@@ -14,26 +14,6 @@ import {
 
 const router = Router();
 
-// Map database package IDs (1,2,3) to config IDs ("bronze","silver","gold")
-const DB_TO_CONFIG_ID: Record<string, string> = {
-  "1": "bronze",
-  "2": "silver",
-  "3": "gold",
-  "4": "platinum",
-  "5": "diamond",
-  "6": "legendary",
-};
-
-// Reverse mapping: config IDs to database IDs
-const CONFIG_TO_DB_ID: Record<string, number> = {
-  "bronze": 1,
-  "silver": 2,
-  "gold": 3,
-  "platinum": 4,
-  "diamond": 5,
-  "legendary": 6,
-};
-
 // Middleware
 const authMiddleware = (req: any, res: Response, next: Function) => {
   const token = req.headers.authorization?.replace("Bearer ", "");
@@ -60,13 +40,17 @@ const authMiddleware = (req: any, res: Response, next: Function) => {
 // Get all packages
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT * FROM packages ORDER BY id"
-    );
+    const { data, error } = await supabase
+      .from("packages")
+      .select("*")
+      .order("id");
+
+    if (error) {
+      throw error;
+    }
 
     res.json({
-      packages: result.rows || [],
+      packages: data || [],
     });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
@@ -76,17 +60,17 @@ router.get("/", async (req: Request, res: Response) => {
 // Get package details
 router.get("/:id", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT * FROM packages WHERE id = $1",
-      [req.params.id]
-    );
+    const { data, error } = await supabase
+      .from("packages")
+      .select("*")
+      .eq("id", req.params.id)
+      .single();
 
-    if (!result.rows || result.rows.length === 0) {
+    if (error || !data) {
       return res.status(404).json({ error: "Package not found" });
     }
 
-    res.json({ package: result.rows[0] });
+    res.json({ package: data });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -106,13 +90,10 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
 
     console.log(`[BUY_PACKAGE] User: ${req.user.id}, Package: ${package_id}, Amount: ${amount}`);
 
-    // Convert database numeric ID to config string ID if needed
-    const configId = DB_TO_CONFIG_ID[package_id] || package_id;
-    
     // Find package config
-    const pkgConfig = PACKAGES_CONFIG.find((p) => p.id === configId);
+    const pkgConfig = PACKAGES_CONFIG.find((p) => p.id === package_id);
     if (!pkgConfig) {
-      console.log(`[BUY_PACKAGE] Package config not found: ${package_id} (mapped to ${configId})`);
+      console.log(`[BUY_PACKAGE] Package config not found: ${package_id}`);
       return res.status(404).json({ error: "Package not found" });
     }
 
@@ -126,30 +107,27 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
       return res.status(400).json({ error: `Minimum investment is ${pkgConfig.min_invest} USDT` });
     }
 
-    const pool = getPostgresPool();
-
     // Check referral requirements for non-Bronze packages
     if (pkgConfig.referral_required > 0) {
-      const eligibility = await checkPackageEligibility(req.user.id, String(CONFIG_TO_DB_ID[configId] || package_id));
+      const eligibility = await checkPackageEligibility(req.user.id, String(package_id));
       if (!eligibility.eligible) {
         console.log(`[BUY_PACKAGE] Eligibility check failed: ${eligibility.reason}`);
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: eligibility.reason || `You need ${pkgConfig.referral_required} active referrals to buy this package` 
         });
       }
     }
 
     // Get user wallet
-    const walletResult = await pool.query(
-      "SELECT usdt_balance FROM wallets WHERE user_id = $1",
-      [req.user.id]
-    );
+    const { data: wallet, error: walletError } = await supabase
+      .from("wallets")
+      .select("usdt_balance")
+      .eq("user_id", req.user.id)
+      .single();
 
-    if (!walletResult.rows || walletResult.rows.length === 0) {
+    if (walletError || !wallet) {
       return res.status(400).json({ error: "Wallet not found" });
     }
-
-    const wallet = walletResult.rows[0];
 
     if (wallet.usdt_balance < investmentAmount) {
       console.log(`[BUY_PACKAGE] Insufficient balance: ${wallet.usdt_balance} < ${investmentAmount}`);
@@ -164,32 +142,35 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
 
     console.log(`[BUY_PACKAGE] Attempting insert with data:`, {
       user_id: req.user.id,
-      package_id: parseInt(package_id),
+      package_id,
       amount: investmentAmount,
       start_time: now,
       end_time: endTime,
       status: "active",
     });
 
-    // Get the numeric database ID for the package
-    const dbPackageId = CONFIG_TO_DB_ID[configId] || parseInt(package_id) || 1;
-    console.log(`[BUY_PACKAGE] Database package ID: ${dbPackageId} (from configId: ${configId})`);
-
-    // Insert purchase (use numeric package_id for database)
     let purchaseId: string = "";
     try {
-      const insertResult = await pool.query(
-        `INSERT INTO purchases (user_id, package_id, amount, status, created_at)
-         VALUES ($1, $2, $3, 'active', CURRENT_TIMESTAMP)
-         RETURNING id`,
-        [req.user.id, dbPackageId, investmentAmount]
-      );
+      const { data: purchase, error: insertError } = await supabase
+        .from("purchases")
+        .insert([
+          {
+            user_id: req.user.id,
+            package_id,
+            amount: investmentAmount,
+            status: "active",
+            start_time: now,
+            end_time: endTime,
+            created_at: now,
+          },
+        ])
+        .select("id")
+        .single();
 
-      if (!insertResult.rows || insertResult.rows.length === 0) {
-        throw new Error("Insert returned no data");
+      if (insertError || !purchase) {
+        throw insertError || new Error("Insert returned no data");
       }
 
-      const purchase = insertResult.rows[0];
       purchaseId = purchase.id;
       console.log(`[BUY_PACKAGE] ✓ Purchase created with ID: ${purchaseId}`);
     } catch (insertError: any) {
@@ -199,10 +180,10 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
 
     // Deduct from wallet
     console.log("[BUY_PACKAGE] Deducting from wallet:", investmentAmount);
-    await pool.query(
-      "UPDATE wallets SET usdt_balance = usdt_balance - $1 WHERE user_id = $2",
-      [investmentAmount, req.user.id]
-    );
+    await supabase
+      .from("wallets")
+      .update({ usdt_balance: wallet.usdt_balance - investmentAmount })
+      .eq("user_id", req.user.id);
     console.log("[BUY_PACKAGE] ✓ Wallet updated");
 
     // Get upline users and process one-time purchase bonuses
@@ -210,16 +191,17 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
 
     if (upline.level1) {
       const level1Bonus = (investmentAmount * 10) / 100;
-      const level1Result = await pool.query(
-        "SELECT usdt_balance FROM wallets WHERE user_id = $1",
-        [upline.level1]
-      );
+      const { data: level1Wallet } = await supabase
+        .from("wallets")
+        .select("usdt_balance")
+        .eq("user_id", upline.level1)
+        .single();
 
-      if (level1Result.rows && level1Result.rows.length > 0) {
-        await pool.query(
-          "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-          [level1Bonus, upline.level1]
-        );
+      if (level1Wallet) {
+        await supabase
+          .from("wallets")
+          .update({ usdt_balance: level1Wallet.usdt_balance + level1Bonus })
+          .eq("user_id", upline.level1);
 
         await recordReferralBonus(
           req.user.id,
@@ -227,23 +209,24 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
           level1Bonus,
           1,
           "one_time_purchase",
-          configId,
+          package_id,
         );
       }
     }
 
     if (upline.level2) {
       const level2Bonus = (investmentAmount * 3) / 100;
-      const level2Result = await pool.query(
-        "SELECT usdt_balance FROM wallets WHERE user_id = $1",
-        [upline.level2]
-      );
+      const { data: level2Wallet } = await supabase
+        .from("wallets")
+        .select("usdt_balance")
+        .eq("user_id", upline.level2)
+        .single();
 
-      if (level2Result.rows && level2Result.rows.length > 0) {
-        await pool.query(
-          "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-          [level2Bonus, upline.level2]
-        );
+      if (level2Wallet) {
+        await supabase
+          .from("wallets")
+          .update({ usdt_balance: level2Wallet.usdt_balance + level2Bonus })
+          .eq("user_id", upline.level2);
 
         await recordReferralBonus(
           req.user.id,
@@ -251,23 +234,24 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
           level2Bonus,
           2,
           "one_time_purchase",
-          configId,
+          package_id,
         );
       }
     }
 
     if (upline.level3) {
       const level3Bonus = (investmentAmount * 2) / 100;
-      const level3Result = await pool.query(
-        "SELECT usdt_balance FROM wallets WHERE user_id = $1",
-        [upline.level3]
-      );
+      const { data: level3Wallet } = await supabase
+        .from("wallets")
+        .select("usdt_balance")
+        .eq("user_id", upline.level3)
+        .single();
 
-      if (level3Result.rows && level3Result.rows.length > 0) {
-        await pool.query(
-          "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-          [level3Bonus, upline.level3]
-        );
+      if (level3Wallet) {
+        await supabase
+          .from("wallets")
+          .update({ usdt_balance: level3Wallet.usdt_balance + level3Bonus })
+          .eq("user_id", upline.level3);
 
         await recordReferralBonus(
           req.user.id,
@@ -275,7 +259,7 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
           level3Bonus,
           3,
           "one_time_purchase",
-          configId,
+          package_id,
         );
       }
     }
@@ -305,21 +289,47 @@ router.get(
   authMiddleware,
   async (req: any, res: Response) => {
     try {
-      const pool = getPostgresPool();
-      const result = await pool.query(
-        `SELECT p.*, pkg.name, pkg.daily_percentage FROM purchases p
-         LEFT JOIN packages pkg ON p.package_id = pkg.id
-         WHERE p.user_id = $1 AND p.status = 'active'
-         ORDER BY p.created_at DESC`,
-        [req.user.id]
+      const { data: purchases, error: purchasesError } = await supabase
+        .from("purchases")
+        .select("*")
+        .eq("user_id", req.user.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+
+      if (purchasesError) {
+        throw purchasesError;
+      }
+
+      const packageIds = Array.from(
+        new Set((purchases || []).map((p: any) => p.package_id))
       );
 
-      // Calculate accrued earnings for each purchase
-      const now = Date.now();
-      const enrichedPurchases = (result.rows || []).map((p: any) => {
-        const dailyEarning = (p.amount * (p.daily_percentage || 0)) / 100;
+      const { data: packageData, error: packagesError } = packageIds.length
+        ? await supabase
+            .from("packages")
+            .select("id,name,daily_percentage")
+            .in("id", packageIds)
+        : { data: [], error: null };
+
+      if (packagesError) {
+        throw packagesError;
+      }
+
+      const packageMap = (packageData || []).reduce<Record<string, any>>(
+        (acc, pkg) => {
+          acc[pkg.id] = pkg;
+          return acc;
+        },
+        {}
+      );
+
+      const enrichedPurchases = (purchases || []).map((p: any) => {
+        const pkg = packageMap[p.package_id] || {};
+        const dailyEarning = (p.amount * (pkg.daily_percentage || 0)) / 100;
         return {
           ...p,
+          name: pkg.name,
+          daily_percentage: pkg.daily_percentage,
           accrued_earnings: dailyEarning,
           daily_earning: dailyEarning,
         };
