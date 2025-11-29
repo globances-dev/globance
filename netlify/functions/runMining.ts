@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { getPostgresPool } from "../../server/utils/postgres";
+import { getSupabaseAdmin } from "../../server/utils/supabase";
 import {
   recordReferralBonus,
   recordEarningsTransaction,
