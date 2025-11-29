@@ -337,7 +337,7 @@ CREATE INDEX idx_user_payment_methods_user ON user_payment_methods(user_id);
 -- ========================================
 CREATE TABLE IF NOT EXISTS fiat_currencies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  code VARCHAR(10) PRIMARY KEY,
+  code VARCHAR(10) UNIQUE NOT NULL,
   name VARCHAR(100) NOT NULL,
   symbol VARCHAR(10),
   is_active BOOLEAN DEFAULT TRUE,
