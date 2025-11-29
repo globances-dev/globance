@@ -1,32 +1,41 @@
-import { getSupabaseAdmin } from './supabase';
-import { sendEmail } from './email';
+import { getSupabaseAdmin } from "./supabase";
+import { sendEmail } from "./email";
 
 export async function createP2PNotification(
   userId: string,
-  type: 'trade_started' | 'payment_sent' | 'released' | 'cancelled' | 'dispute_opened' | 'dispute_resolved',
+  type:
+    | "trade_started"
+    | "payment_sent"
+    | "released"
+    | "cancelled"
+    | "dispute_opened"
+    | "dispute_resolved",
   title: string,
   message: string,
-  data?: any
+  data?: any,
 ): Promise<void> {
   try {
     const supabase = getSupabaseAdmin();
 
     // Create activity/notification entry
-    await supabase
-      .from('earnings_transactions')
-      .insert({
-        user_id: userId,
-        amount: 0,
-        type: `p2p_${type}`,
-      });
-
+    await supabase.from("earnings_transactions").insert({
+      user_id: userId,
+      amount: 0,
+      type: `p2p_${type}`,
+    });
   } catch (error) {
-    console.error('Error creating P2P notification:', error);
+    console.error("Error creating P2P notification:", error);
   }
 }
 
 export async function sendP2PEmails(
-  type: 'trade_started' | 'payment_sent' | 'released' | 'cancelled' | 'dispute_opened' | 'dispute_resolved',
+  type:
+    | "trade_started"
+    | "payment_sent"
+    | "released"
+    | "cancelled"
+    | "dispute_opened"
+    | "dispute_resolved",
   buyerEmail: string,
   sellerEmail: string,
   data: {
@@ -35,13 +44,13 @@ export async function sendP2PEmails(
     fiat_currency_code: string;
     trade_id?: string;
     reason?: string;
-  }
+  },
 ): Promise<void> {
   const { amount_usdt, total_fiat, fiat_currency_code, trade_id } = data;
 
   try {
     switch (type) {
-      case 'trade_started':
+      case "trade_started":
         await sendEmail({
           to: buyerEmail,
           subject: `Trade Started - ${amount_usdt} USDT for ${fiat_currency_code} - Globance P2P`,
@@ -78,7 +87,7 @@ export async function sendP2PEmails(
         });
         break;
 
-      case 'payment_sent':
+      case "payment_sent":
         await sendEmail({
           to: sellerEmail,
           subject: `Payment Received - ${amount_usdt} USDT - Globance P2P`,
@@ -96,7 +105,7 @@ export async function sendP2PEmails(
         });
         break;
 
-      case 'released':
+      case "released":
         await sendEmail({
           to: buyerEmail,
           subject: `Trade Completed - ${amount_usdt} USDT Received - Globance P2P`,
@@ -130,7 +139,7 @@ export async function sendP2PEmails(
         });
         break;
 
-      case 'dispute_opened':
+      case "dispute_opened":
         await sendEmail({
           to: buyerEmail,
           subject: `Dispute Opened - Trade ${trade_id} - Globance P2P`,
@@ -157,6 +166,6 @@ export async function sendP2PEmails(
         break;
     }
   } catch (error) {
-    console.error('Error sending P2P email:', error);
+    console.error("Error sending P2P email:", error);
   }
 }

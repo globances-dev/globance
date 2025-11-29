@@ -58,21 +58,21 @@ export async function expireOverdueTrades() {
           try {
             await createP2PNotification(
               trade.buyer_id,
-              'cancelled',
-              'Trade Expired',
+              "cancelled",
+              "Trade Expired",
               `Your P2P trade expired due to non-payment. The offer has been returned to the seller.`,
-              { trade_id: trade.id }
+              { trade_id: trade.id },
             );
 
             await createP2PNotification(
               trade.seller_id,
-              'cancelled',
-              'Trade Expired',
+              "cancelled",
+              "Trade Expired",
               `Your P2P trade expired due to buyer non-payment. Escrow has been released back to your wallet.`,
-              { trade_id: trade.id }
+              { trade_id: trade.id },
             );
           } catch (err) {
-            console.error('[P2P Cron] Error creating notifications:', err);
+            console.error("[P2P Cron] Error creating notifications:", err);
           }
         })();
 
@@ -83,7 +83,9 @@ export async function expireOverdueTrades() {
       }
     }
 
-    console.log(`[P2P Cron] Trade expiry check complete. Processed: ${processedCount}`);
+    console.log(
+      `[P2P Cron] Trade expiry check complete. Processed: ${processedCount}`,
+    );
     return processedCount;
   } catch (error) {
     console.error("[P2P Cron] Fatal error in expireOverdueTrades:", error);

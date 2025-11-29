@@ -103,15 +103,13 @@ async function processDailyMiningEarnings() {
       console.log("[Mining] No active purchases found");
 
       // Log the cron run
-      await supabase
-        .from("cron_logs")
-        .insert({
-          process_type: "daily_earnings",
-          process_date: todayDate,
-          purchases_processed: 0,
-          total_distributed: 0,
-          failed_count: 0,
-        });
+      await supabase.from("cron_logs").insert({
+        process_type: "daily_earnings",
+        process_date: todayDate,
+        purchases_processed: 0,
+        total_distributed: 0,
+        failed_count: 0,
+      });
 
       return {
         status: "completed",
@@ -133,10 +131,13 @@ async function processDailyMiningEarnings() {
         const dailyEarning = (purchase.amount * dailyPercent) / 100;
 
         // Credit to user wallet
-        const { error: walletError } = await supabase.rpc('increment_wallet_balance', {
-          p_user_id: purchase.user_id,
-          p_amount: dailyEarning,
-        });
+        const { error: walletError } = await supabase.rpc(
+          "increment_wallet_balance",
+          {
+            p_user_id: purchase.user_id,
+            p_amount: dailyEarning,
+          },
+        );
 
         if (!walletError) {
           totalDistributed += dailyEarning;
@@ -163,7 +164,7 @@ async function processDailyMiningEarnings() {
           if (upline.level1) {
             const level1Commission = (dailyEarning * 10) / 100;
 
-            await supabase.rpc('increment_wallet_balance', {
+            await supabase.rpc("increment_wallet_balance", {
               p_user_id: upline.level1,
               p_amount: level1Commission,
             });
@@ -183,7 +184,7 @@ async function processDailyMiningEarnings() {
           if (upline.level2) {
             const level2Commission = (dailyEarning * 3) / 100;
 
-            await supabase.rpc('increment_wallet_balance', {
+            await supabase.rpc("increment_wallet_balance", {
               p_user_id: upline.level2,
               p_amount: level2Commission,
             });
@@ -203,7 +204,7 @@ async function processDailyMiningEarnings() {
           if (upline.level3) {
             const level3Commission = (dailyEarning * 2) / 100;
 
-            await supabase.rpc('increment_wallet_balance', {
+            await supabase.rpc("increment_wallet_balance", {
               p_user_id: upline.level3,
               p_amount: level3Commission,
             });
@@ -243,15 +244,13 @@ async function processDailyMiningEarnings() {
     );
 
     // Log the cron run
-    await supabase
-      .from("cron_logs")
-      .insert({
-        process_type: "daily_earnings",
-        process_date: todayDate,
-        purchases_processed: processed,
-        total_distributed: totalDistributed,
-        failed_count: failedPurchases.length,
-      });
+    await supabase.from("cron_logs").insert({
+      process_type: "daily_earnings",
+      process_date: todayDate,
+      purchases_processed: processed,
+      total_distributed: totalDistributed,
+      failed_count: failedPurchases.length,
+    });
 
     console.log("[Mining] 🎉 Daily earnings cycle complete!");
 

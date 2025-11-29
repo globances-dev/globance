@@ -1,7 +1,7 @@
 /**
  * IMPORTANT: This file provides a compatibility layer between Supabase and the old Neon interface.
  * While we maintain pool.query() syntax, all queries are executed through Supabase.
- * 
+ *
  * For new code, consider using getSupabaseAdmin() directly instead.
  * For complex raw SQL queries, they should be converted to Supabase query builder syntax.
  */
@@ -35,7 +35,10 @@ class SupabasePoolWrapper {
         return await this.executeDelete(sql, params);
       } else {
         // For other SQL (like CREATE TABLE, etc.), log a warning
-        console.warn("[Supabase] Complex SQL operation may not be supported:", sql);
+        console.warn(
+          "[Supabase] Complex SQL operation may not be supported:",
+          sql,
+        );
         return { rows: [], rowCount: 0 };
       }
     } catch (error: any) {
@@ -46,7 +49,7 @@ class SupabasePoolWrapper {
 
   private async executeSelect(
     sql: string,
-    params: any[]
+    params: any[],
   ): Promise<QueryResult> {
     const supabase = getSupabaseAdminImport();
 
@@ -117,7 +120,7 @@ class SupabasePoolWrapper {
 
   private async executeInsert(
     sql: string,
-    params: any[]
+    params: any[],
   ): Promise<QueryResult> {
     const supabase = getSupabaseAdminImport();
 
@@ -171,7 +174,7 @@ class SupabasePoolWrapper {
 
   private async executeUpdate(
     sql: string,
-    params: any[]
+    params: any[],
   ): Promise<QueryResult> {
     const supabase = getSupabaseAdminImport();
 
@@ -251,7 +254,7 @@ class SupabasePoolWrapper {
 
   private async executeDelete(
     sql: string,
-    params: any[]
+    params: any[],
   ): Promise<QueryResult> {
     const supabase = getSupabaseAdminImport();
 

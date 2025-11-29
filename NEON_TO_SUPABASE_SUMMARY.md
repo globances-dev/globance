@@ -3,6 +3,7 @@
 ## ✅ Completed Tasks
 
 ### Code Changes
+
 - [x] Removed `@neondatabase/serverless` from dependencies
 - [x] Added `@supabase/supabase-js` to dependencies
 - [x] Created `server/utils/supabase.ts` - Supabase client utility
@@ -17,6 +18,7 @@
 - [x] Updated `netlify.toml` with correct environment variable documentation
 
 ### Database
+
 - [x] Created `server/migrations/supabase_schema.sql` - complete schema for Supabase
 - [x] Schema includes all 18 tables
 - [x] Schema includes triggers for automatic timestamps
@@ -24,6 +26,7 @@
 - [x] Schema includes all indexes for performance
 
 ### Backward Compatibility
+
 - [x] All existing route files work unchanged via `postgres.ts` compatibility wrapper
 - [x] SQL queries automatically converted to Supabase API calls
 - [x] No changes needed to ~20+ route files using `getPostgresPool()`
@@ -62,6 +65,7 @@ pnpm dev
 ```
 
 Test these features:
+
 - [ ] App starts without errors
 - [ ] User registration works
 - [ ] User login works
@@ -72,6 +76,7 @@ Test these features:
 ### Phase 3: Deployment (10 minutes)
 
 1. Commit all changes:
+
    ```bash
    git add .
    git commit -m "migrate: switch from Neon to Supabase"
@@ -85,12 +90,14 @@ Test these features:
 ## 📋 Files Modified
 
 ### Core Application Files
+
 - `package.json` - Updated dependencies
 - `pnpm-lock.yaml` - Will be regenerated on install
 - `.env.example` - Updated with Supabase variables
 - `netlify.toml` - Updated environment variable docs
 
 ### Utility Files
+
 - `server/utils/supabase.ts` - **NEW** Supabase client
 - `server/utils/postgres.ts` - **REWRITTEN** compatibility wrapper
 - `server/utils/db-init.ts` - Updated to use Supabase
@@ -99,14 +106,17 @@ Test these features:
 - `server/utils/p2p-notifications.ts` - Updated to use Supabase
 
 ### Route Files
+
 - `server/routes/auth.ts` - Updated to use Supabase
 - All other routes unchanged (use compatibility wrapper)
 
 ### Netlify Functions
+
 - `netlify/functions/runMining.ts` - Updated to use Supabase
 - `netlify/functions/api.ts` - No changes needed
 
 ### Database
+
 - `server/migrations/supabase_schema.sql` - **NEW** Complete Supabase schema
 
 ## 🔑 Environment Variables
@@ -133,6 +143,7 @@ NOWPAYMENTS_IPN_SECRET=...
 ## 🎯 Key Improvements
 
 ### Architecture
+
 - ✅ Cloud-native PostgreSQL (Supabase)
 - ✅ REST API instead of direct connections
 - ✅ Built-in Row Level Security (RLS)
@@ -140,12 +151,14 @@ NOWPAYMENTS_IPN_SECRET=...
 - ✅ Serverless-first design
 
 ### Security
+
 - ✅ Row Level Security enforced
 - ✅ Service role key protected on server only
 - ✅ Anon key safe on client
 - ✅ Built-in authentication ready if needed
 
 ### Reliability
+
 - ✅ Automatic backups
 - ✅ Point-in-time recovery
 - ✅ Zero downtime deployments
@@ -154,34 +167,41 @@ NOWPAYMENTS_IPN_SECRET=...
 ## ⚡ Performance Notes
 
 ### Compatibility Wrapper Limitations
+
 The `postgres.ts` wrapper supports common patterns but has limitations:
+
 - ✅ Simple WHERE clauses
 - ✅ Single table operations
 - ❌ Complex JOINs (use Supabase client directly)
 - ❌ Subqueries (use Supabase client directly)
 
 For complex queries, use directly:
+
 ```typescript
-import { getSupabaseAdmin } from './server/utils/supabase';
+import { getSupabaseAdmin } from "./server/utils/supabase";
 const supabase = getSupabaseAdmin();
 const { data } = await supabase
-  .from('purchases')
-  .select('*, packages(*)')
-  .eq('user_id', userId);
+  .from("purchases")
+  .select("*, packages(*)")
+  .eq("user_id", userId);
 ```
 
 ## 🚨 Potential Issues & Solutions
 
 ### Issue: "SUPABASE_URL not found"
+
 **Solution:** Ensure `.env` file has correct variable names and restart dev server
 
 ### Issue: "Unknown table"
+
 **Solution:** Run the `supabase_schema.sql` migration in Supabase SQL Editor
 
 ### Issue: Login fails
+
 **Solution:** Verify `users` table exists and has correct schema
 
 ### Issue: Slow queries
+
 **Solution:** Check Supabase indexes are created (they should be from schema)
 
 ## 📞 Need Help?
@@ -205,6 +225,7 @@ const { data } = await supabase
 **Migration Status: COMPLETE ✅**
 
 All code changes done. User action required:
+
 1. Set up Supabase project
 2. Run database migrations
 3. Update environment variables

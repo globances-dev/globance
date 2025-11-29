@@ -5,21 +5,25 @@ This document outlines all the changes made to migrate from Neon to Supabase, an
 ## ✅ What Has Been Done
 
 ### 1. **Removed Neon Dependencies**
+
 - ✅ Removed `@neondatabase/serverless` from `package.json`
 - ✅ Removed `pg` package (not needed for Supabase)
 - ✅ Kept all other dependencies intact
 
 ### 2. **Added Supabase Dependencies**
+
 - ✅ Added `@supabase/supabase-js` v2.43.4
 - Latest stable Supabase client library
 
 ### 3. **Created Supabase Client Utility**
+
 - ✅ Created `server/utils/supabase.ts`
 - Exports `getSupabaseClient()` for anon operations
 - Exports `getSupabaseAdmin()` for server-side operations
 - Automatically initializes from environment variables
 
 ### 4. **Updated Authentication Routes**
+
 - ✅ Migrated `server/routes/auth.ts`
   - Register endpoint uses Supabase
   - Login endpoint uses Supabase
@@ -27,31 +31,36 @@ This document outlines all the changes made to migrate from Neon to Supabase, an
   - Token generation remains JWT-based (backward compatible)
 
 ### 5. **Created Compatibility Wrapper**
+
 - ✅ Rewrote `server/utils/postgres.ts`
 - Maintains `getPostgresPool()` interface for backward compatibility
 - Internally converts SQL to Supabase query builder syntax
 - All existing routes work without modification
 
 ### 6. **Updated Core Utilities**
+
 - ✅ `server/utils/referral.ts` - uses Supabase
 - ✅ `server/utils/db-init.ts` - uses Supabase health check
 - ✅ `server/utils/p2p-cron.ts` - uses Supabase queries
 - ✅ `server/utils/p2p-notifications.ts` - uses Supabase
 
 ### 7. **Updated Mining Cron**
+
 - ✅ `netlify/functions/runMining.ts`
 - Now uses Supabase for all data operations
 - Processes daily mining earnings via Supabase
 - Maintains idempotency checks
 
 ### 8. **Updated Environment Variables**
-- ✅ ``.env.example`` updated with Supabase variables:
+
+- ✅ `.env.example` updated with Supabase variables:
   - `SUPABASE_URL`
   - `SUPABASE_ANON_KEY`
   - `SUPABASE_SERVICE_ROLE_KEY`
 - ✅ Removed all Neon variables
 
 ### 9. **Created Complete Supabase Schema**
+
 - ✅ `server/migrations/supabase_schema.sql`
 - Complete database schema with all tables
 - Includes triggers, functions, and indexes
@@ -95,6 +104,7 @@ SENDGRID_API_KEY=your-sendgrid-api-key
 6. Click **Run**
 
 The schema will be created with:
+
 - ✅ All tables (users, wallets, purchases, deposits, withdrawals, etc.)
 - ✅ All indexes for performance
 - ✅ Triggers for automatic `updated_at` timestamps
@@ -139,6 +149,7 @@ pnpm dev
 ```
 
 Check that:
+
 - ✅ App starts without errors
 - ✅ No import errors for postgres utilities
 - ✅ Database connection is established
@@ -160,11 +171,13 @@ Check that:
 ## 🔧 Key Architecture Changes
 
 ### **Old Stack (Neon)**
+
 ```
 Routes → getPostgresPool() → NeonPoolWrapper → Neon SQL Client
 ```
 
 ### **New Stack (Supabase)**
+
 ```
 Routes → getPostgresPool() → SupabasePoolWrapper → Supabase REST API
          ↓ (or directly)
@@ -174,6 +187,7 @@ Routes → getPostgresPool() → SupabasePoolWrapper → Supabase REST API
 ## 📚 API Compatibility
 
 The compatibility wrapper in `postgres.ts` supports:
+
 - ✅ **SELECT** queries with WHERE, ORDER BY, LIMIT
 - ✅ **INSERT** queries with RETURNING
 - ✅ **UPDATE** queries with WHERE
@@ -182,43 +196,45 @@ The compatibility wrapper in `postgres.ts` supports:
 ### **Example Usage (Backward Compatible)**
 
 ```typescript
-import { getPostgresPool } from './server/utils/postgres';
+import { getPostgresPool } from "./server/utils/postgres";
 
 const pool = getPostgresPool();
 
 // SELECT
-const result = await pool.query(
-  'SELECT * FROM users WHERE email = $1',
-  [email]
-);
+const result = await pool.query("SELECT * FROM users WHERE email = $1", [
+  email,
+]);
 console.log(result.rows);
 
 // INSERT
 const insertResult = await pool.query(
-  'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING *',
-  [email, hashedPassword]
+  "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING *",
+  [email, hashedPassword],
 );
 
 // UPDATE
 const updateResult = await pool.query(
-  'UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2',
-  [amount, userId]
+  "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
+  [amount, userId],
 );
 ```
 
 ## 🔐 Security Considerations
 
 ### **Row Level Security (RLS)**
+
 - Enabled on all sensitive tables
 - Policies restrict users to their own data
 - Admins have full access
 
 ### **Service Role Key**
+
 - Used only on server-side for administrative operations
 - NEVER expose in client-side code
 - Keep it secret like a password
 
 ### **Anon Key**
+
 - Used for client-side operations
 - Respects RLS policies
 - Can be exposed in frontend code
@@ -226,7 +242,9 @@ const updateResult = await pool.query(
 ## ⚠️ Known Limitations
 
 ### **Complex SQL Queries**
+
 The compatibility wrapper doesn't support:
+
 - ❌ Complex JOINs
 - ❌ Subqueries
 - ❌ Custom functions
@@ -235,32 +253,36 @@ The compatibility wrapper doesn't support:
 For these, directly use the Supabase client:
 
 ```typescript
-import { getSupabaseAdmin } from './server/utils/supabase';
+import { getSupabaseAdmin } from "./server/utils/supabase";
 
 const supabase = getSupabaseAdmin();
 
 // Direct relationship queries
 const { data } = await supabase
-  .from('purchases')
-  .select('*, packages(*)')
-  .eq('user_id', userId);
+  .from("purchases")
+  .select("*, packages(*)")
+  .eq("user_id", userId);
 ```
 
 ## 📊 Troubleshooting
 
 ### **Error: SUPABASE_URL not found**
+
 - ✅ Check `.env` file has correct variable names
 - ✅ Restart dev server after changing `.env`
 
 ### **Error: Unknown table**
+
 - ✅ Run `supabase_schema.sql` migration
 - ✅ Verify table exists in Supabase Table Editor
 
 ### **Error: Row Level Security violation**
+
 - ✅ Check RLS policies are correct
 - ✅ Use `getSupabaseAdmin()` for server operations
 
 ### **Login fails**
+
 - ✅ Verify `users` table was created
 - ✅ Check password hashing is working
 - ✅ Test in Supabase Query Editor

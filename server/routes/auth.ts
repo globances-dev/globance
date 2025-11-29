@@ -43,7 +43,10 @@ router.post("/register", async (req: Request, res: Response) => {
       .limit(1);
 
     if (existingError) {
-      console.error("[Auth] Database error checking existing user:", existingError);
+      console.error(
+        "[Auth] Database error checking existing user:",
+        existingError,
+      );
       return res.status(500).json({ error: "Database error" });
     }
 
@@ -96,15 +99,13 @@ router.post("/register", async (req: Request, res: Response) => {
     console.log("[Auth] User created:", newUser.id);
 
     // Create wallet
-    const { error: walletError } = await supabase
-      .from("wallets")
-      .insert({
-        user_id: newUser.id,
-        usdt_balance: 0,
-        escrow_balance: 0,
-        total_earned: 0,
-        total_referral_earned: 0,
-      });
+    const { error: walletError } = await supabase.from("wallets").insert({
+      user_id: newUser.id,
+      usdt_balance: 0,
+      escrow_balance: 0,
+      total_earned: 0,
+      total_referral_earned: 0,
+    });
 
     if (walletError) {
       console.error("[Auth] Error creating wallet:", walletError);
@@ -112,37 +113,49 @@ router.post("/register", async (req: Request, res: Response) => {
 
     // Create permanent deposit addresses for TRC20 and BEP20
     try {
-      const trc20Address = await createPermanentDepositAddress(newUser.id, 'TRC20');
-      await supabase
-        .from("deposit_addresses")
-        .insert({
-          user_id: newUser.id,
-          network: 'TRC20',
-          address: trc20Address.address,
-          provider: 'nowpayments',
-          provider_wallet_id: trc20Address.paymentId,
-          is_active: true,
-        });
-      console.log(`[NOWPayments] Created permanent TRC20 address for user ${newUser.id}`);
+      const trc20Address = await createPermanentDepositAddress(
+        newUser.id,
+        "TRC20",
+      );
+      await supabase.from("deposit_addresses").insert({
+        user_id: newUser.id,
+        network: "TRC20",
+        address: trc20Address.address,
+        provider: "nowpayments",
+        provider_wallet_id: trc20Address.paymentId,
+        is_active: true,
+      });
+      console.log(
+        `[NOWPayments] Created permanent TRC20 address for user ${newUser.id}`,
+      );
     } catch (addressError: any) {
-      console.error('[NOWPayments] TRC20 address creation error:', addressError);
+      console.error(
+        "[NOWPayments] TRC20 address creation error:",
+        addressError,
+      );
     }
 
     try {
-      const bep20Address = await createPermanentDepositAddress(newUser.id, 'BEP20');
-      await supabase
-        .from("deposit_addresses")
-        .insert({
-          user_id: newUser.id,
-          network: 'BEP20',
-          address: bep20Address.address,
-          provider: 'nowpayments',
-          provider_wallet_id: bep20Address.paymentId,
-          is_active: true,
-        });
-      console.log(`[NOWPayments] Created permanent BEP20 address for user ${newUser.id}`);
+      const bep20Address = await createPermanentDepositAddress(
+        newUser.id,
+        "BEP20",
+      );
+      await supabase.from("deposit_addresses").insert({
+        user_id: newUser.id,
+        network: "BEP20",
+        address: bep20Address.address,
+        provider: "nowpayments",
+        provider_wallet_id: bep20Address.paymentId,
+        is_active: true,
+      });
+      console.log(
+        `[NOWPayments] Created permanent BEP20 address for user ${newUser.id}`,
+      );
     } catch (addressError: any) {
-      console.error('[NOWPayments] BEP20 address creation error:', addressError);
+      console.error(
+        "[NOWPayments] BEP20 address creation error:",
+        addressError,
+      );
     }
 
     // Send registration email
@@ -156,7 +169,7 @@ router.post("/register", async (req: Request, res: Response) => {
     const token = signToken({
       id: newUser.id,
       email: newUser.email,
-      role: 'user',
+      role: "user",
     });
 
     res.json({
@@ -216,7 +229,7 @@ router.post("/login", async (req: Request, res: Response) => {
     const token = signToken({
       id: user.id,
       email: user.email,
-      role: user.role || 'user',
+      role: user.role || "user",
     });
 
     res.json({
@@ -251,7 +264,9 @@ router.get("/me", async (req: Request, res: Response) => {
     const supabase = getSupabaseAdmin();
     const { data: users, error } = await supabase
       .from("users")
-      .select("id, email, full_name, is_verified, created_at, ref_code, current_rank")
+      .select(
+        "id, email, full_name, is_verified, created_at, ref_code, current_rank",
+      )
       .eq("id", decoded.id)
       .limit(1);
 
@@ -314,17 +329,20 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
     const resetToken = generateResetToken();
     const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hour expiration
 
-    console.log("[FORGOT PASSWORD] Generated token for user:", user.id, "email:", email);
+    console.log(
+      "[FORGOT PASSWORD] Generated token for user:",
+      user.id,
+      "email:",
+      email,
+    );
 
     // Store token in database
     try {
-      const { error } = await supabase
-        .from("password_reset_tokens")
-        .insert({
-          user_id: user.id,
-          token: resetToken,
-          expires_at: expiresAt.toISOString(),
-        });
+      const { error } = await supabase.from("password_reset_tokens").insert({
+        user_id: user.id,
+        token: resetToken,
+        expires_at: expiresAt.toISOString(),
+      });
 
       if (error) {
         throw error;
@@ -332,8 +350,13 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
 
       console.log("[FORGOT PASSWORD] Token stored successfully");
     } catch (tokenError: any) {
-      console.error("[FORGOT PASSWORD] Token storage error:", tokenError.message);
-      return res.status(500).json({ error: "Failed to generate reset link - database error" });
+      console.error(
+        "[FORGOT PASSWORD] Token storage error:",
+        tokenError.message,
+      );
+      return res
+        .status(500)
+        .json({ error: "Failed to generate reset link - database error" });
     }
 
     const resetLink = `${process.env.APP_URL || "https://globance.app"}/reset-password?token=${resetToken}`;
@@ -382,7 +405,9 @@ router.post("/reset-password", async (req: Request, res: Response) => {
     const resetTokenData = tokens[0];
 
     if (resetTokenData.used_at) {
-      return res.status(400).json({ error: "Reset link has already been used" });
+      return res
+        .status(400)
+        .json({ error: "Reset link has already been used" });
     }
 
     const expiresAt = new Date(resetTokenData.expires_at);

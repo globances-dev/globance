@@ -73,7 +73,7 @@ export async function countActiveDirectReferrals(
 ): Promise<number> {
   try {
     const supabase = getSupabaseAdmin();
-    
+
     const { data, error } = await supabase
       .from("purchases")
       .select("user_id", { count: "exact" })
@@ -81,11 +81,8 @@ export async function countActiveDirectReferrals(
       .in(
         "user_id",
         (
-          await supabase
-            .from("users")
-            .select("id")
-            .eq("ref_by", userId)
-        ).data?.map((u: any) => u.id) || []
+          await supabase.from("users").select("id").eq("ref_by", userId)
+        ).data?.map((u: any) => u.id) || [],
       );
 
     if (error) {
@@ -94,7 +91,7 @@ export async function countActiveDirectReferrals(
     }
 
     // Count distinct users
-    const distinctUserIds = new Set((data || []).map(p => p.user_id));
+    const distinctUserIds = new Set((data || []).map((p) => p.user_id));
     return distinctUserIds.size;
   } catch (error) {
     console.error("Error counting active direct referrals:", error);
@@ -108,7 +105,7 @@ export async function countActiveDirectReferrals(
 export async function getTotalInvestedAmount(userId: string): Promise<number> {
   try {
     const supabase = getSupabaseAdmin();
-    
+
     const { data, error } = await supabase
       .from("purchases")
       .select("amount")
@@ -120,7 +117,10 @@ export async function getTotalInvestedAmount(userId: string): Promise<number> {
       return 0;
     }
 
-    const total = (data || []).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+    const total = (data || []).reduce(
+      (sum, p) => sum + parseFloat(p.amount || 0),
+      0,
+    );
     return total;
   } catch (error) {
     console.error("Error getting total invested amount:", error);
@@ -164,7 +164,7 @@ export async function calculateHighestQualifiedRank(
 export async function getUserRankInfo(userId: string): Promise<UserRankInfo> {
   try {
     const supabase = getSupabaseAdmin();
-    
+
     const { data: users, error } = await supabase
       .from("users")
       .select("current_rank")
@@ -199,7 +199,7 @@ export async function getUserRankInfo(userId: string): Promise<UserRankInfo> {
 export async function updateUserRank(userId: string): Promise<string> {
   try {
     const highestQualifiedRank = await calculateHighestQualifiedRank(userId);
-    
+
     const supabase = getSupabaseAdmin();
     await supabase
       .from("users")
@@ -216,11 +216,15 @@ export async function updateUserRank(userId: string): Promise<string> {
 /**
  * Get the referral bonus percentages for each level
  */
-export function getReferralBonusPercentages(): { level1: number; level2: number; level3: number } {
+export function getReferralBonusPercentages(): {
+  level1: number;
+  level2: number;
+  level3: number;
+} {
   return {
     level1: 10, // 10% of daily earnings
-    level2: 3,  // 3% of daily earnings
-    level3: 2,  // 2% of daily earnings
+    level2: 3, // 3% of daily earnings
+    level3: 2, // 2% of daily earnings
   };
 }
 
@@ -229,11 +233,11 @@ export function getReferralBonusPercentages(): { level1: number; level2: number;
  */
 export async function checkPackageEligibility(
   userId: string,
-  packageId: string
+  packageId: string,
 ): Promise<{ eligible: boolean; reason?: string }> {
   try {
     const supabase = getSupabaseAdmin();
-    
+
     // Get package requirements
     const { data: packages } = await supabase
       .from("packages")
@@ -258,9 +262,9 @@ export async function checkPackageEligibility(
     const minAmount = parseFloat(pkg.min_amount || 0);
 
     if (balance < minAmount) {
-      return { 
-        eligible: false, 
-        reason: `Insufficient balance. Need ${minAmount} USDT, have ${balance} USDT` 
+      return {
+        eligible: false,
+        reason: `Insufficient balance. Need ${minAmount} USDT, have ${balance} USDT`,
       };
     }
 
@@ -288,7 +292,7 @@ export async function checkPackageEligibility(
  * Returns object with level1, level2, level3 user IDs
  */
 export async function getUplineUsers(
-  userId: string
+  userId: string,
 ): Promise<{ level1?: string; level2?: string; level3?: string }> {
   const upline: { level1?: string; level2?: string; level3?: string } = {};
 
@@ -350,21 +354,19 @@ export async function recordReferralBonus(
   amount: number,
   level: number,
   bonusType: string,
-  packageId?: string | number
+  packageId?: string | number,
 ): Promise<void> {
   try {
     const supabase = getSupabaseAdmin();
-    
-    await supabase
-      .from("referral_bonus_transactions")
-      .insert({
-        from_user_id: fromUserId,
-        to_user_id: toUserId,
-        amount,
-        level,
-        type: bonusType,
-        package_id: packageId?.toString() || null,
-      });
+
+    await supabase.from("referral_bonus_transactions").insert({
+      from_user_id: fromUserId,
+      to_user_id: toUserId,
+      amount,
+      level,
+      type: bonusType,
+      package_id: packageId?.toString() || null,
+    });
   } catch (error) {
     console.error("Error recording referral bonus:", error);
   }
@@ -376,20 +378,23 @@ export async function recordReferralBonus(
 export async function recordEarningsTransaction(
   userId: string,
   amount: number,
-  type: "daily_mining_income" | "referral_bonus" | "deposit" | "withdrawal" | "investment",
-  packageId?: string
+  type:
+    | "daily_mining_income"
+    | "referral_bonus"
+    | "deposit"
+    | "withdrawal"
+    | "investment",
+  packageId?: string,
 ): Promise<void> {
   try {
     const supabase = getSupabaseAdmin();
-    
-    await supabase
-      .from("earnings_transactions")
-      .insert({
-        user_id: userId,
-        package_id: packageId || null,
-        amount,
-        type,
-      });
+
+    await supabase.from("earnings_transactions").insert({
+      user_id: userId,
+      package_id: packageId || null,
+      amount,
+      type,
+    });
   } catch (error) {
     console.error("Error recording earnings transaction:", error);
   }
