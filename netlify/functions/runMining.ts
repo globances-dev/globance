@@ -74,15 +74,17 @@ async function processDailyMiningEarnings() {
       `[Mining] ⏰ Starting daily earnings processing at ${now.toISOString()}`,
     );
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseAdmin();
 
     // Check if already processed today (idempotency check)
-    const cronLogResult = await pool.query(
-      "SELECT * FROM cron_logs WHERE DATE(process_date) = $1 AND process_type = 'daily_earnings'",
-      [todayDate],
-    );
+    const { data: existingLogs } = await supabase
+      .from("cron_logs")
+      .select("*")
+      .eq("process_type", "daily_earnings")
+      .eq("process_date", todayDate)
+      .limit(1);
 
-    if (cronLogResult.rows && cronLogResult.rows.length > 0) {
+    if (existingLogs && existingLogs.length > 0) {
       console.log(`[Mining] ⏭️  Already processed for ${todayDate}, skipping`);
       return {
         status: "skipped",
@@ -91,22 +93,25 @@ async function processDailyMiningEarnings() {
       };
     }
 
-    // Get all active purchases
-    const purchasesResult = await pool.query(
-      "SELECT p.*, pkg.daily_percentage FROM purchases p LEFT JOIN packages pkg ON p.package_id = pkg.id WHERE p.status = 'active'",
-    );
+    // Get all active purchases with their package info
+    const { data: purchases } = await supabase
+      .from("purchases")
+      .select("*, packages(daily_percent)")
+      .eq("status", "active");
 
-    const purchases = purchasesResult.rows || [];
-
-    if (purchases.length === 0) {
+    if (!purchases || purchases.length === 0) {
       console.log("[Mining] No active purchases found");
 
       // Log the cron run
-      await pool.query(
-        `INSERT INTO cron_logs (process_type, process_date, purchases_processed, total_distributed)
-         VALUES ('daily_earnings', $1, 0, 0)`,
-        [now.toISOString()],
-      );
+      await supabase
+        .from("cron_logs")
+        .insert({
+          process_type: "daily_earnings",
+          process_date: todayDate,
+          purchases_processed: 0,
+          total_distributed: 0,
+          failed_count: 0,
+        });
 
       return {
         status: "completed",
@@ -123,93 +128,100 @@ async function processDailyMiningEarnings() {
     // Process each active purchase
     for (const purchase of purchases) {
       try {
-        const dailyEarning =
-          (purchase.amount * (purchase.daily_percentage || 0)) / 100;
+        // Calculate daily earning
+        const dailyPercent = (purchase.packages as any)?.daily_percent || 0;
+        const dailyEarning = (purchase.amount * dailyPercent) / 100;
 
         // Credit to user wallet
-        await pool.query(
-          "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-          [dailyEarning, purchase.user_id],
-        );
+        const { error: walletError } = await supabase.rpc('increment_wallet_balance', {
+          p_user_id: purchase.user_id,
+          p_amount: dailyEarning,
+        });
 
-        totalDistributed += dailyEarning;
+        if (!walletError) {
+          totalDistributed += dailyEarning;
 
-        // Record earnings transaction
-        console.log(
-          `[Mining] Recording transaction for user ${purchase.user_id}: ${dailyEarning} USDT`,
-        );
-
-        try {
-          await pool.query(
-            `INSERT INTO earnings_transactions (user_id, package_id, amount, type, created_at)
-             VALUES ($1, $2, $3, 'daily_mining_income', CURRENT_TIMESTAMP)`,
-            [purchase.user_id, purchase.package_id, dailyEarning],
+          // Record earnings transaction
+          console.log(
+            `[Mining] Recording transaction for user ${purchase.user_id}: ${dailyEarning} USDT`,
           );
-        } catch (txError) {
-          console.error(`[Mining] Failed to record transaction:`, txError);
+
+          try {
+            await recordEarningsTransaction(
+              purchase.user_id,
+              dailyEarning,
+              "daily_mining_income",
+              purchase.package_id,
+            );
+          } catch (txError) {
+            console.error(`[Mining] Failed to record transaction:`, txError);
+          }
+
+          // Process referral daily earnings (10%, 3%, 2%)
+          const upline = await getUplineUsers(purchase.user_id);
+
+          if (upline.level1) {
+            const level1Commission = (dailyEarning * 10) / 100;
+
+            await supabase.rpc('increment_wallet_balance', {
+              p_user_id: upline.level1,
+              p_amount: level1Commission,
+            });
+
+            await recordReferralBonus(
+              purchase.user_id,
+              upline.level1,
+              level1Commission,
+              1,
+              "daily_referral_income",
+              purchase.package_id,
+            );
+
+            totalDistributed += level1Commission;
+          }
+
+          if (upline.level2) {
+            const level2Commission = (dailyEarning * 3) / 100;
+
+            await supabase.rpc('increment_wallet_balance', {
+              p_user_id: upline.level2,
+              p_amount: level2Commission,
+            });
+
+            await recordReferralBonus(
+              purchase.user_id,
+              upline.level2,
+              level2Commission,
+              2,
+              "daily_referral_income",
+              purchase.package_id,
+            );
+
+            totalDistributed += level2Commission;
+          }
+
+          if (upline.level3) {
+            const level3Commission = (dailyEarning * 2) / 100;
+
+            await supabase.rpc('increment_wallet_balance', {
+              p_user_id: upline.level3,
+              p_amount: level3Commission,
+            });
+
+            await recordReferralBonus(
+              purchase.user_id,
+              upline.level3,
+              level3Commission,
+              3,
+              "daily_referral_income",
+              purchase.package_id,
+            );
+
+            totalDistributed += level3Commission;
+          }
+
+          processed++;
         }
-
-        // Process referral daily earnings (10%, 3%, 2%)
-        const upline = await getUplineUsers(purchase.user_id);
-
-        if (upline.level1) {
-          const level1Commission = (dailyEarning * 10) / 100;
-          await pool.query(
-            "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-            [level1Commission, upline.level1],
-          );
-
-          await recordReferralBonus(
-            purchase.user_id,
-            upline.level1,
-            level1Commission,
-            1,
-            "daily_referral_income",
-            purchase.package_id,
-          );
-
-          totalDistributed += level1Commission;
-        }
-
-        if (upline.level2) {
-          const level2Commission = (dailyEarning * 3) / 100;
-          await pool.query(
-            "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-            [level2Commission, upline.level2],
-          );
-
-          await recordReferralBonus(
-            purchase.user_id,
-            upline.level2,
-            level2Commission,
-            2,
-            "daily_referral_income",
-            purchase.package_id,
-          );
-
-          totalDistributed += level2Commission;
-        }
-
-        if (upline.level3) {
-          const level3Commission = (dailyEarning * 2) / 100;
-          await pool.query(
-            "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-            [level3Commission, upline.level3],
-          );
-
-          await recordReferralBonus(
-            purchase.user_id,
-            upline.level3,
-            level3Commission,
-            3,
-            "daily_referral_income",
-            purchase.package_id,
-          );
-
-          totalDistributed += level3Commission;
-        }
-
-        processed++;
       } catch (error) {
         console.error(
           `[Mining] Error processing purchase ${purchase.id}:`,
@@ -231,11 +243,15 @@ async function processDailyMiningEarnings() {
     );
 
     // Log the cron run
-    await pool.query(
-      `INSERT INTO cron_logs (process_type, process_date, purchases_processed, total_distributed, failed_count)
-       VALUES ('daily_earnings', $1, $2, $3, $4)`,
-      [now.toISOString(), processed, totalDistributed, failedPurchases.length],
-    );
+    await supabase
+      .from("cron_logs")
+      .insert({
+        process_type: "daily_earnings",
+        process_date: todayDate,
+        purchases_processed: processed,
+        total_distributed: totalDistributed,
+        failed_count: failedPurchases.length,
+      });
 
     console.log("[Mining] 🎉 Daily earnings cycle complete!");
 
