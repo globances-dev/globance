@@ -1,4 +1,4 @@
-import { getPostgresPool } from "./postgres";
+import { getSupabaseAdmin } from "./supabase";
 
 export const PACKAGES_CONFIG = [
   {
@@ -72,16 +72,30 @@ export async function countActiveDirectReferrals(
   userId: string,
 ): Promise<number> {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseAdmin();
     
-    const result = await pool.query(`
-      SELECT COUNT(DISTINCT p.user_id) as count
-      FROM purchases p
-      JOIN users u ON p.user_id = u.id
-      WHERE p.status = 'active' AND u.referred_by = $1
-    `, [userId]);
+    const { data, error } = await supabase
+      .from("purchases")
+      .select("user_id", { count: "exact" })
+      .eq("status", "active")
+      .in(
+        "user_id",
+        (
+          await supabase
+            .from("users")
+            .select("id")
+            .eq("ref_by", userId)
+        ).data?.map((u: any) => u.id) || []
+      );
 
-    return parseInt(result.rows[0]?.count) || 0;
+    if (error) {
+      console.error("Error counting active direct referrals:", error);
+      return 0;
+    }
+
+    // Count distinct users
+    const distinctUserIds = new Set((data || []).map(p => p.user_id));
+    return distinctUserIds.size;
   } catch (error) {
     console.error("Error counting active direct referrals:", error);
     return 0;
@@ -93,15 +107,21 @@ export async function countActiveDirectReferrals(
  */
 export async function getTotalInvestedAmount(userId: string): Promise<number> {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseAdmin();
     
-    const result = await pool.query(`
-      SELECT COALESCE(SUM(amount), 0) as total
-      FROM purchases
-      WHERE user_id = $1 AND status = 'active'
-    `, [userId]);
+    const { data, error } = await supabase
+      .from("purchases")
+      .select("amount")
+      .eq("user_id", userId)
+      .eq("status", "active");
 
-    return parseFloat(result.rows[0]?.total) || 0;
+    if (error) {
+      console.error("Error getting total invested amount:", error);
+      return 0;
+    }
+
+    const total = (data || []).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+    return total;
   } catch (error) {
     console.error("Error getting total invested amount:", error);
     return 0;
@@ -143,14 +163,15 @@ export async function calculateHighestQualifiedRank(
  */
 export async function getUserRankInfo(userId: string): Promise<UserRankInfo> {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseAdmin();
     
-    const userResult = await pool.query(
-      "SELECT current_rank FROM users WHERE id = $1",
-      [userId]
-    );
+    const { data: users, error } = await supabase
+      .from("users")
+      .select("current_rank")
+      .eq("id", userId)
+      .limit(1);
 
-    const currentRank = userResult.rows[0]?.current_rank || "Bronze";
+    const currentRank = users?.[0]?.current_rank || "Bronze";
     const totalInvested = await getTotalInvestedAmount(userId);
     const activeReferralCount = await countActiveDirectReferrals(userId);
     const highestQualifiedRank = await calculateHighestQualifiedRank(userId);
@@ -179,11 +200,11 @@ export async function updateUserRank(userId: string): Promise<string> {
   try {
     const highestQualifiedRank = await calculateHighestQualifiedRank(userId);
     
-    const pool = getPostgresPool();
-    await pool.query(
-      "UPDATE users SET current_rank = $1 WHERE id = $2",
-      [highestQualifiedRank, userId]
-    );
+    const supabase = getSupabaseAdmin();
+    await supabase
+      .from("users")
+      .update({ current_rank: highestQualifiedRank })
+      .eq("id", userId);
 
     return highestQualifiedRank;
   } catch (error) {
@@ -204,173 +225,6 @@ export function getReferralBonusPercentages(): { level1: number; level2: number;
 }
 
 /**
- * Process referral bonuses for a user's daily mining earnings
- */
-export async function processReferralBonuses(
-  userId: string,
-  dailyEarning: number,
-  purchaseId: string
-): Promise<void> {
-  try {
-    const pool = getPostgresPool();
-    const bonuses = getReferralBonusPercentages();
-
-    // Level 1 referrer
-    const level1Result = await pool.query(
-      "SELECT referred_by FROM users WHERE id = $1",
-      [userId]
-    );
-
-    if (!level1Result.rows[0]?.referred_by) return;
-
-    const level1ReferrerId = level1Result.rows[0].referred_by;
-    const level1Bonus = dailyEarning * (bonuses.level1 / 100);
-
-    // Credit level 1 bonus
-    await pool.query(
-      "UPDATE wallets SET usdt_balance = usdt_balance + $1, total_referral_earned = total_referral_earned + $1 WHERE user_id = $2",
-      [level1Bonus, level1ReferrerId]
-    );
-
-    await pool.query(
-      `INSERT INTO referral_bonus_transactions (from_user_id, to_user_id, amount, level, type, source_purchase_id)
-       VALUES ($1, $2, $3, 1, 'daily_bonus', $4)`,
-      [userId, level1ReferrerId, level1Bonus, purchaseId]
-    );
-
-    // Level 2 referrer
-    const level2Result = await pool.query(
-      "SELECT referred_by FROM users WHERE id = $1",
-      [level1ReferrerId]
-    );
-
-    if (!level2Result.rows[0]?.referred_by) return;
-
-    const level2ReferrerId = level2Result.rows[0].referred_by;
-    const level2Bonus = dailyEarning * (bonuses.level2 / 100);
-
-    await pool.query(
-      "UPDATE wallets SET usdt_balance = usdt_balance + $1, total_referral_earned = total_referral_earned + $1 WHERE user_id = $2",
-      [level2Bonus, level2ReferrerId]
-    );
-
-    await pool.query(
-      `INSERT INTO referral_bonus_transactions (from_user_id, to_user_id, amount, level, type, source_purchase_id)
-       VALUES ($1, $2, $3, 2, 'daily_bonus', $4)`,
-      [userId, level2ReferrerId, level2Bonus, purchaseId]
-    );
-
-    // Level 3 referrer
-    const level3Result = await pool.query(
-      "SELECT referred_by FROM users WHERE id = $1",
-      [level2ReferrerId]
-    );
-
-    if (!level3Result.rows[0]?.referred_by) return;
-
-    const level3ReferrerId = level3Result.rows[0].referred_by;
-    const level3Bonus = dailyEarning * (bonuses.level3 / 100);
-
-    await pool.query(
-      "UPDATE wallets SET usdt_balance = usdt_balance + $1, total_referral_earned = total_referral_earned + $1 WHERE user_id = $2",
-      [level3Bonus, level3ReferrerId]
-    );
-
-    await pool.query(
-      `INSERT INTO referral_bonus_transactions (from_user_id, to_user_id, amount, level, type, source_purchase_id)
-       VALUES ($1, $2, $3, 3, 'daily_bonus', $4)`,
-      [userId, level3ReferrerId, level3Bonus, purchaseId]
-    );
-
-  } catch (error) {
-    console.error("Error processing referral bonuses:", error);
-  }
-}
-
-/**
- * Process one-time referral bonus when user purchases a package
- */
-export async function processPurchaseReferralBonus(
-  userId: string,
-  purchaseAmount: number,
-  purchaseId: string
-): Promise<void> {
-  try {
-    const pool = getPostgresPool();
-    const bonuses = getReferralBonusPercentages();
-
-    // Level 1 referrer
-    const level1Result = await pool.query(
-      "SELECT referred_by FROM users WHERE id = $1",
-      [userId]
-    );
-
-    if (!level1Result.rows[0]?.referred_by) return;
-
-    const level1ReferrerId = level1Result.rows[0].referred_by;
-    const level1Bonus = purchaseAmount * (bonuses.level1 / 100);
-
-    await pool.query(
-      "UPDATE wallets SET usdt_balance = usdt_balance + $1, total_referral_earned = total_referral_earned + $1 WHERE user_id = $2",
-      [level1Bonus, level1ReferrerId]
-    );
-
-    await pool.query(
-      `INSERT INTO referral_bonus_transactions (from_user_id, to_user_id, amount, level, type, source_purchase_id)
-       VALUES ($1, $2, $3, 1, 'purchase_bonus', $4)`,
-      [userId, level1ReferrerId, level1Bonus, purchaseId]
-    );
-
-    // Level 2 referrer
-    const level2Result = await pool.query(
-      "SELECT referred_by FROM users WHERE id = $1",
-      [level1ReferrerId]
-    );
-
-    if (!level2Result.rows[0]?.referred_by) return;
-
-    const level2ReferrerId = level2Result.rows[0].referred_by;
-    const level2Bonus = purchaseAmount * (bonuses.level2 / 100);
-
-    await pool.query(
-      "UPDATE wallets SET usdt_balance = usdt_balance + $1, total_referral_earned = total_referral_earned + $1 WHERE user_id = $2",
-      [level2Bonus, level2ReferrerId]
-    );
-
-    await pool.query(
-      `INSERT INTO referral_bonus_transactions (from_user_id, to_user_id, amount, level, type, source_purchase_id)
-       VALUES ($1, $2, $3, 2, 'purchase_bonus', $4)`,
-      [userId, level2ReferrerId, level2Bonus, purchaseId]
-    );
-
-    // Level 3 referrer
-    const level3Result = await pool.query(
-      "SELECT referred_by FROM users WHERE id = $1",
-      [level2ReferrerId]
-    );
-
-    if (!level3Result.rows[0]?.referred_by) return;
-
-    const level3ReferrerId = level3Result.rows[0].referred_by;
-    const level3Bonus = purchaseAmount * (bonuses.level3 / 100);
-
-    await pool.query(
-      "UPDATE wallets SET usdt_balance = usdt_balance + $1, total_referral_earned = total_referral_earned + $1 WHERE user_id = $2",
-      [level3Bonus, level3ReferrerId]
-    );
-
-    await pool.query(
-      `INSERT INTO referral_bonus_transactions (from_user_id, to_user_id, amount, level, type, source_purchase_id)
-       VALUES ($1, $2, $3, 3, 'purchase_bonus', $4)`,
-      [userId, level3ReferrerId, level3Bonus, purchaseId]
-    );
-
-  } catch (error) {
-    console.error("Error processing purchase referral bonus:", error);
-  }
-}
-
-/**
  * Check if a user is eligible to purchase a specific package
  */
 export async function checkPackageEligibility(
@@ -378,28 +232,30 @@ export async function checkPackageEligibility(
   packageId: string
 ): Promise<{ eligible: boolean; reason?: string }> {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseAdmin();
     
     // Get package requirements
-    const packageResult = await pool.query(
-      "SELECT * FROM packages WHERE id = $1",
-      [packageId]
-    );
+    const { data: packages } = await supabase
+      .from("packages")
+      .select("*")
+      .eq("id", packageId)
+      .limit(1);
 
-    if (!packageResult.rows.length) {
+    if (!packages || packages.length === 0) {
       return { eligible: false, reason: "Package not found" };
     }
 
-    const pkg = packageResult.rows[0];
+    const pkg = packages[0];
 
     // Get user's wallet balance
-    const walletResult = await pool.query(
-      "SELECT usdt_balance FROM wallets WHERE user_id = $1",
-      [userId]
-    );
+    const { data: wallets } = await supabase
+      .from("wallets")
+      .select("usdt_balance")
+      .eq("user_id", userId)
+      .limit(1);
 
-    const balance = parseFloat(walletResult.rows[0]?.usdt_balance || 0);
-    const minAmount = parseFloat(pkg.min_investment || pkg.min_amount || 0);
+    const balance = parseFloat(wallets?.[0]?.usdt_balance || 0);
+    const minAmount = parseFloat(pkg.min_amount || 0);
 
     if (balance < minAmount) {
       return { 
@@ -437,35 +293,41 @@ export async function getUplineUsers(
   const upline: { level1?: string; level2?: string; level3?: string } = {};
 
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseAdmin();
     let currentUserId = userId;
 
     // Level 1
-    const result1 = await pool.query(
-      "SELECT referred_by FROM users WHERE id = $1",
-      [currentUserId]
-    );
-    const level1Id = result1.rows[0]?.referred_by;
+    const { data: level1Data } = await supabase
+      .from("users")
+      .select("ref_by")
+      .eq("id", currentUserId)
+      .limit(1);
+
+    const level1Id = level1Data?.[0]?.ref_by;
     if (level1Id) {
       upline.level1 = level1Id;
       currentUserId = level1Id;
 
       // Level 2
-      const result2 = await pool.query(
-        "SELECT referred_by FROM users WHERE id = $1",
-        [currentUserId]
-      );
-      const level2Id = result2.rows[0]?.referred_by;
+      const { data: level2Data } = await supabase
+        .from("users")
+        .select("ref_by")
+        .eq("id", currentUserId)
+        .limit(1);
+
+      const level2Id = level2Data?.[0]?.ref_by;
       if (level2Id) {
         upline.level2 = level2Id;
         currentUserId = level2Id;
 
         // Level 3
-        const result3 = await pool.query(
-          "SELECT referred_by FROM users WHERE id = $1",
-          [currentUserId]
-        );
-        const level3Id = result3.rows[0]?.referred_by;
+        const { data: level3Data } = await supabase
+          .from("users")
+          .select("ref_by")
+          .eq("id", currentUserId)
+          .limit(1);
+
+        const level3Id = level3Data?.[0]?.ref_by;
         if (level3Id) {
           upline.level3 = level3Id;
         }
@@ -491,13 +353,18 @@ export async function recordReferralBonus(
   packageId?: string | number
 ): Promise<void> {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseAdmin();
     
-    await pool.query(
-      `INSERT INTO referral_bonus_transactions (user_id, recipient_id, amount, level, bonus_type, package_id, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
-      [fromUserId, toUserId, amount, level, bonusType, packageId?.toString() || null]
-    );
+    await supabase
+      .from("referral_bonus_transactions")
+      .insert({
+        from_user_id: fromUserId,
+        to_user_id: toUserId,
+        amount,
+        level,
+        type: bonusType,
+        package_id: packageId?.toString() || null,
+      });
   } catch (error) {
     console.error("Error recording referral bonus:", error);
   }
@@ -509,18 +376,20 @@ export async function recordReferralBonus(
 export async function recordEarningsTransaction(
   userId: string,
   amount: number,
-  type: "daily_mining" | "referral_bonus" | "deposit" | "withdrawal" | "package_purchase",
-  description?: string,
-  purchaseId?: string
+  type: "daily_mining_income" | "referral_bonus" | "deposit" | "withdrawal" | "investment",
+  packageId?: string
 ): Promise<void> {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseAdmin();
     
-    await pool.query(
-      `INSERT INTO earnings_transactions (user_id, purchase_id, amount, type, description)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [userId, purchaseId || null, amount, type, description || null]
-    );
+    await supabase
+      .from("earnings_transactions")
+      .insert({
+        user_id: userId,
+        package_id: packageId || null,
+        amount,
+        type,
+      });
   } catch (error) {
     console.error("Error recording earnings transaction:", error);
   }
