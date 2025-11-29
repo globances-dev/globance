@@ -26,26 +26,32 @@ const authMiddleware = (req: any, res: Response, next: Function) => {
 // Get complete wallet data (balance + total earned)
 router.get('/me', authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    
-    const walletResult = await pool.query(
-      'SELECT * FROM wallets WHERE user_id = $1',
-      [req.user.id]
-    );
+    const { data: walletRows, error: walletError } = await supabase
+      .from('wallets')
+      .select('usdt_balance, escrow_balance')
+      .eq('user_id', req.user.id);
 
-    if (!walletResult.rows || walletResult.rows.length === 0) {
+    if (walletError) {
+      throw walletError;
+    }
+
+    if (!walletRows || walletRows.length === 0) {
       return res.status(404).json({ error: 'Wallet not found' });
     }
 
-    const wallet = walletResult.rows[0];
+    const wallet = walletRows[0];
 
     // Calculate total earned from all purchases
-    const purchasesResult = await pool.query(
-      'SELECT total_earned FROM purchases WHERE user_id = $1',
-      [req.user.id]
-    );
+    const { data: purchasesRows, error: purchasesError } = await supabase
+      .from('purchases')
+      .select('total_earned')
+      .eq('user_id', req.user.id);
 
-    const total_earned = (purchasesResult.rows || []).reduce((sum: number, p: any) => sum + (p.total_earned || 0), 0);
+    if (purchasesError) {
+      throw purchasesError;
+    }
+
+    const total_earned = (purchasesRows || []).reduce((sum: number, p: any) => sum + (p.total_earned || 0), 0);
 
     res.json({
       usdt_balance: wallet.usdt_balance,
@@ -60,17 +66,20 @@ router.get('/me', authMiddleware, async (req: any, res: Response) => {
 // Get wallet balance (legacy endpoint - kept for backward compatibility)
 router.get('/balance', authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      'SELECT * FROM wallets WHERE user_id = $1',
-      [req.user.id]
-    );
+    const { data: walletRows, error: walletError } = await supabase
+      .from('wallets')
+      .select('usdt_balance, escrow_balance')
+      .eq('user_id', req.user.id);
 
-    if (!result.rows || result.rows.length === 0) {
+    if (walletError) {
+      throw walletError;
+    }
+
+    if (!walletRows || walletRows.length === 0) {
       return res.status(404).json({ error: 'Wallet not found' });
     }
 
-    const wallet = result.rows[0];
+    const wallet = walletRows[0];
     res.json({
       usdt_balance: wallet.usdt_balance,
       escrow_balance: wallet.escrow_balance || 0,
@@ -83,27 +92,34 @@ router.get('/balance', authMiddleware, async (req: any, res: Response) => {
 // Get or create deposit addresses (PERMANENT - created once per user)
 router.get('/deposit-addresses', authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    
-    // Get existing permanent addresses
-    const addressesResult = await pool.query(
-      'SELECT * FROM deposit_addresses WHERE user_id = $1 AND is_active = true ORDER BY created_at DESC',
-      [req.user.id]
-    );
+    const { data: addresses, error: addressesError } = await supabase
+      .from('deposit_addresses')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
 
-    const addresses = addressesResult.rows || [];
-    const trc20 = addresses.find((a: any) => a.network === 'TRC20');
-    const bep20 = addresses.find((a: any) => a.network === 'BEP20');
+    if (addressesError) {
+      throw addressesError;
+    }
+
+    const existingAddresses = addresses || [];
+    const trc20 = existingAddresses.find((a: any) => a.network === 'TRC20');
+    const bep20 = existingAddresses.find((a: any) => a.network === 'BEP20');
 
     // Create permanent addresses if they don't exist (fallback from registration)
     if (!trc20) {
       try {
         const trc20Address = await createPermanentDepositAddress(req.user.id, 'TRC20');
-        await pool.query(
-          `INSERT INTO deposit_addresses (user_id, network, address, provider, provider_wallet_id, is_active)
-           VALUES ($1, $2, $3, $4, $5, true)`,
-          [req.user.id, 'TRC20', trc20Address.address, 'nowpayments', trc20Address.paymentId]
-        );
+        await supabase.from('deposit_addresses').insert({
+          user_id: req.user.id,
+          network: 'TRC20',
+          address: trc20Address.address,
+          provider: 'nowpayments',
+          provider_wallet_id: trc20Address.paymentId,
+          is_active: true,
+          created_at: new Date().toISOString(),
+        });
         console.log(`[NOWPayments] Created TRC20 address ${trc20Address.address}`);
       } catch (err) {
         console.error('[NOWPayments] Error creating TRC20 address:', err);
@@ -113,11 +129,15 @@ router.get('/deposit-addresses', authMiddleware, async (req: any, res: Response)
     if (!bep20) {
       try {
         const bep20Address = await createPermanentDepositAddress(req.user.id, 'BEP20');
-        await pool.query(
-          `INSERT INTO deposit_addresses (user_id, network, address, provider, provider_wallet_id, is_active)
-           VALUES ($1, $2, $3, $4, $5, true)`,
-          [req.user.id, 'BEP20', bep20Address.address, 'nowpayments', bep20Address.paymentId]
-        );
+        await supabase.from('deposit_addresses').insert({
+          user_id: req.user.id,
+          network: 'BEP20',
+          address: bep20Address.address,
+          provider: 'nowpayments',
+          provider_wallet_id: bep20Address.paymentId,
+          is_active: true,
+          created_at: new Date().toISOString(),
+        });
         console.log(`[NOWPayments] Created BEP20 address ${bep20Address.address}`);
       } catch (err) {
         console.error('[NOWPayments] Error creating BEP20 address:', err);
@@ -125,13 +145,19 @@ router.get('/deposit-addresses', authMiddleware, async (req: any, res: Response)
     }
 
     // Get final permanent addresses
-    const finalResult = await pool.query(
-      'SELECT * FROM deposit_addresses WHERE user_id = $1 AND is_active = true ORDER BY created_at DESC',
-      [req.user.id]
-    );
+    const { data: finalAddresses, error: finalError } = await supabase
+      .from('deposit_addresses')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (finalError) {
+      throw finalError;
+    }
 
     res.json({
-      addresses: finalResult.rows || [],
+      addresses: finalAddresses || [],
     });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
@@ -141,14 +167,19 @@ router.get('/deposit-addresses', authMiddleware, async (req: any, res: Response)
 // Get deposit history
 router.get('/deposit-history', authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      'SELECT * FROM deposits WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
-      [req.user.id]
-    );
+    const { data: deposits, error } = await supabase
+      .from('deposits')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      throw error;
+    }
 
     res.json({
-      deposits: result.rows || [],
+      deposits: deposits || [],
     });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
@@ -167,14 +198,19 @@ router.post('/withdrawal-request', authMiddleware, async (req: any, res: Respons
 // Get withdrawal history
 router.get('/withdrawal-history', authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      'SELECT * FROM withdrawals WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
-      [req.user.id]
-    );
+    const { data: withdrawals, error } = await supabase
+      .from('withdrawals')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      throw error;
+    }
 
     // Ensure net_amount is included
-    const withdrawalsWithNetAmount = (result.rows || []).map((w: any) => ({
+    const withdrawalsWithNetAmount = (withdrawals || []).map((w: any) => ({
       ...w,
       net_amount: w.net_amount_usdt !== undefined ? w.net_amount_usdt : (w.amount_usdt - (w.fee_usdt || 0)),
     }));
@@ -230,19 +266,22 @@ router.post('/withdraw', authMiddleware, async (req: any, res: Response) => {
     const netAmount = amount - WITHDRAWAL_FEE;
 
     // Check user balance
-    const pool = getPostgresPool();
-    const walletResult = await pool.query(
-      'SELECT usdt_balance FROM wallets WHERE user_id = $1',
-      [req.user.id]
-    );
+    const { data: walletRows, error: walletError } = await supabase
+      .from('wallets')
+      .select('usdt_balance')
+      .eq('user_id', req.user.id);
 
-    if (!walletResult.rows || walletResult.rows.length === 0) {
+    if (walletError) {
+      throw walletError;
+    }
+
+    if (!walletRows || walletRows.length === 0) {
       return res.status(404).json({ error: 'Wallet not found' });
     }
 
-    const wallet = walletResult.rows[0];
+    const wallet = walletRows[0];
     if (wallet.usdt_balance < amount) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: `Insufficient balance. Available: ${wallet.usdt_balance} USDT`
       });
     }
@@ -252,18 +291,28 @@ router.post('/withdraw', authMiddleware, async (req: any, res: Response) => {
 
     let withdrawal;
     try {
-      const result = await pool.query(
-        `INSERT INTO withdrawals (user_id, amount_usdt, fee_usdt, net_amount_usdt, address, network, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-         RETURNING id, user_id, amount_usdt, fee_usdt, net_amount_usdt, address, network, status, created_at, updated_at`,
-        [req.user.id, amount, WITHDRAWAL_FEE, netAmount, address, network]
-      );
+      const timestamp = new Date().toISOString();
+      const { data, error } = await supabase
+        .from('withdrawals')
+        .insert({
+          user_id: req.user.id,
+          amount_usdt: amount,
+          fee_usdt: WITHDRAWAL_FEE,
+          net_amount_usdt: netAmount,
+          address,
+          network,
+          status: 'pending',
+          created_at: timestamp,
+          updated_at: timestamp,
+        })
+        .select('id, user_id, amount_usdt, fee_usdt, net_amount_usdt, address, network, status, created_at, updated_at')
+        .single();
 
-      if (!result.rows || result.rows.length === 0) {
-        throw new Error('No rows returned from insert');
+      if (error) {
+        throw error;
       }
 
-      withdrawal = result.rows[0];
+      withdrawal = data;
       console.log('[Withdrawal] Successfully created withdrawal record:', withdrawal.id);
     } catch (err: any) {
       console.error('[Withdrawal] Direct SQL insert failed:', err);
@@ -272,12 +321,17 @@ router.post('/withdraw', authMiddleware, async (req: any, res: Response) => {
 
     // Deduct full amount from user wallet immediately
     try {
-      const updateResult = await pool.query(
-        'UPDATE wallets SET usdt_balance = usdt_balance - $1 WHERE user_id = $2',
-        [amount, req.user.id]
-      );
+      const { error: updateError, data: updateData } = await supabase
+        .from('wallets')
+        .update({ usdt_balance: wallet.usdt_balance - amount })
+        .eq('user_id', req.user.id)
+        .select('user_id');
 
-      if (updateResult.rowCount === 0) {
+      if (updateError) {
+        throw updateError;
+      }
+
+      if (!updateData || updateData.length === 0) {
         throw new Error('Wallet update failed - no rows affected');
       }
 
@@ -285,17 +339,19 @@ router.post('/withdraw', authMiddleware, async (req: any, res: Response) => {
     } catch (err: any) {
       console.error('[Withdrawal] Failed to update wallet:', err.message);
       // Delete withdrawal record if wallet update fails
-      await pool.query('DELETE FROM withdrawals WHERE id = $1', [withdrawal.id]);
+      await supabase.from('withdrawals').delete().eq('id', withdrawal.id);
       return res.status(500).json({ error: 'Failed to process withdrawal' });
     }
 
     // Record platform fee (1 USDT)
     try {
-      await pool.query(
-        `INSERT INTO platform_earnings (source_type, source_id, amount, description)
-         VALUES ($1, $2, $3, $4)`,
-        ['withdrawal_fee', withdrawal.id, WITHDRAWAL_FEE, `Withdrawal fee from user ${req.user.id}`]
-      );
+      await supabase.from('platform_earnings').insert({
+        source_type: 'withdrawal_fee',
+        source_id: withdrawal.id,
+        amount: WITHDRAWAL_FEE,
+        description: `Withdrawal fee from user ${req.user.id}`,
+        created_at: new Date().toISOString(),
+      });
     } catch (err) {
       console.error('[Withdrawal] Failed to record platform fee:', err);
     }
