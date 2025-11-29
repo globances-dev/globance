@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getPostgresPool } from "../utils/postgres";
+import { supabase } from "../utils/postgres";
 import { signToken, verifyToken } from "../utils/jwt";
 import {
   hashPassword,
@@ -33,15 +33,18 @@ router.post("/register", async (req: Request, res: Response) => {
     const data = RegisterSchema.parse(req.body);
     console.log("[Auth] Validation passed for:", data.email);
 
-    const pool = getPostgresPool();
+    const { data: existingUser, error: existingError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', data.email)
+      .maybeSingle();
 
-    // Check if user exists
-    const existingResult = await pool.query(
-      "SELECT id FROM users WHERE email = $1",
-      [data.email]
-    );
+    if (existingError) {
+      console.error('[Auth] Error checking existing user:', existingError);
+      return res.status(500).json({ error: existingError.message });
+    }
 
-    if (existingResult.rows && existingResult.rows.length > 0) {
+    if (existingUser) {
       return res.status(400).json({ error: "Email already registered" });
     }
 
@@ -52,46 +55,53 @@ router.post("/register", async (req: Request, res: Response) => {
     // Check referrer if provided
     let refById: string | null = null;
     if (data.ref_by) {
-      const referrerResult = await pool.query(
-        "SELECT id FROM users WHERE username = $1",
-        [data.ref_by]
-      );
+      const { data: referrer, error: referrerError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', data.ref_by)
+        .maybeSingle();
 
-      if (referrerResult.rows && referrerResult.rows.length > 0) {
-        refById = referrerResult.rows[0].id;
+      if (referrerError) {
+        console.error('[Auth] Error fetching referrer:', referrerError);
+      }
+
+      if (referrer) {
+        refById = referrer.id;
       }
     }
 
-    // Create user with referral code
-    const userResult = await pool.query(
-      `INSERT INTO users (email, password_hash, username, verified, referral_code)
-       VALUES ($1, $2, $3, false, $4)
-       RETURNING id, email, username, referral_code`,
-      [data.email, passwordHash, data.full_name, refCode]
-    );
+    const { data: newUser, error: userInsertError } = await supabase
+      .from('users')
+      .insert({
+        email: data.email,
+        password_hash: passwordHash,
+        username: data.full_name,
+        verified: false,
+        referral_code: refCode,
+        ref_by: refById,
+      })
+      .select('id, email, username, referral_code')
+      .single();
 
-    if (!userResult.rows || userResult.rows.length === 0) {
+    if (userInsertError || !newUser) {
+      console.error('[Auth] Failed to create user:', userInsertError);
       return res.status(400).json({ error: "Failed to create user" });
     }
-
-    const newUser = userResult.rows[0];
     console.log("[Auth] User created:", newUser.id);
 
-    // Create wallet
-    await pool.query(
-      `INSERT INTO wallets (user_id, usdt_balance)
-       VALUES ($1, 0)`,
-      [newUser.id]
-    );
+    await supabase.from('wallets').insert({ user_id: newUser.id, usdt_balance: 0 });
 
     // Create permanent deposit addresses for TRC20 and BEP20
     try {
       const trc20Address = await createPermanentDepositAddress(newUser.id, 'TRC20');
-      await pool.query(
-        `INSERT INTO deposit_addresses (user_id, network, address, provider, provider_wallet_id, is_active)
-         VALUES ($1, $2, $3, $4, $5, true)`,
-        [newUser.id, 'TRC20', trc20Address.address, 'nowpayments', trc20Address.paymentId]
-      );
+      await supabase.from('deposit_addresses').insert({
+        user_id: newUser.id,
+        network: 'TRC20',
+        address: trc20Address.address,
+        provider: 'nowpayments',
+        provider_wallet_id: trc20Address.paymentId,
+        is_active: true,
+      });
       console.log(`[NOWPayments] Created permanent TRC20 address for user ${newUser.id}`);
     } catch (addressError: any) {
       console.error('[NOWPayments] TRC20 address creation error:', addressError);
@@ -99,11 +109,14 @@ router.post("/register", async (req: Request, res: Response) => {
 
     try {
       const bep20Address = await createPermanentDepositAddress(newUser.id, 'BEP20');
-      await pool.query(
-        `INSERT INTO deposit_addresses (user_id, network, address, provider, provider_wallet_id, is_active)
-         VALUES ($1, $2, $3, $4, $5, true)`,
-        [newUser.id, 'BEP20', bep20Address.address, 'nowpayments', bep20Address.paymentId]
-      );
+      await supabase.from('deposit_addresses').insert({
+        user_id: newUser.id,
+        network: 'BEP20',
+        address: bep20Address.address,
+        provider: 'nowpayments',
+        provider_wallet_id: bep20Address.paymentId,
+        is_active: true,
+      });
       console.log(`[NOWPayments] Created permanent BEP20 address for user ${newUser.id}`);
     } catch (addressError: any) {
       console.error('[NOWPayments] BEP20 address creation error:', addressError);
@@ -154,17 +167,15 @@ router.post("/login", async (req: Request, res: Response) => {
   try {
     const data = LoginSchema.parse(req.body);
 
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT * FROM users WHERE email = $1",
-      [data.email]
-    );
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', data.email)
+      .maybeSingle();
 
-    if (!result.rows || result.rows.length === 0) {
+    if (fetchError || !user) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
-
-    const user = result.rows[0];
 
     // Compare password
     const validPassword = await comparePassword(
@@ -211,27 +222,25 @@ router.get("/me", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid token" });
     }
 
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT id, email, username, verified, created_at, referral_code FROM users WHERE id = $1",
-      [decoded.id]
-    );
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, email, username, verified, created_at, referral_code')
+      .eq('id', decoded.id)
+      .maybeSingle();
 
-    if (!result.rows || result.rows.length === 0) {
+    if (userError || !user) {
       return res.status(404).json({ error: "User not found" });
     }
-
-    const user = result.rows[0];
 
     // Auto-generate referral code if missing
     let referralCode = user.referral_code;
     if (!referralCode) {
       referralCode = generateReferralCode();
       try {
-        await pool.query(
-          "UPDATE users SET referral_code = $1 WHERE id = $2",
-          [referralCode, user.id]
-        );
+        await supabase
+          .from('users')
+          .update({ referral_code: referralCode })
+          .eq('id', user.id);
       } catch (err) {
         console.warn("Failed to auto-generate referral code:", err);
       }
@@ -257,21 +266,19 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
   try {
     const { email } = z.object({ email: z.string().email() }).parse(req.body);
 
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT id, email FROM users WHERE email = $1",
-      [email]
-    );
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('email', email)
+      .maybeSingle();
 
-    if (!result.rows || result.rows.length === 0) {
+    if (userError || !user) {
       // Don't leak whether email exists - always return success
       return res.json({
         success: true,
         message: "If email exists, reset link sent",
       });
     }
-
-    const user = result.rows[0];
     const resetToken = generateResetToken();
     const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hour expiration
 
@@ -279,11 +286,17 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
 
     // Store token in database
     try {
-      await pool.query(
-        `INSERT INTO password_reset_tokens (user_id, token, expires_at)
-         VALUES ($1, $2, $3)`,
-        [user.id, resetToken, expiresAt.toISOString()]
-      );
+      const { error: tokenError } = await supabase
+        .from('password_reset_tokens')
+        .insert({
+          user_id: user.id,
+          token: resetToken,
+          expires_at: expiresAt.toISOString(),
+        });
+
+      if (tokenError) {
+        throw tokenError;
+      }
       console.log("[FORGOT PASSWORD] Token stored successfully");
     } catch (tokenError: any) {
       console.error("[FORGOT PASSWORD] Token storage error:", tokenError.message);
@@ -319,20 +332,16 @@ router.post("/reset-password", async (req: Request, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const { data: resetTokenData, error: tokenError } = await supabase
+      .from('password_reset_tokens')
+      .select('user_id, expires_at, used_at')
+      .eq('token', token)
+      .maybeSingle();
 
-    // Find and validate token
-    const tokenResult = await pool.query(
-      "SELECT user_id, expires_at, used_at FROM password_reset_tokens WHERE token = $1",
-      [token]
-    );
-
-    if (!tokenResult.rows || tokenResult.rows.length === 0) {
+    if (tokenError || !resetTokenData) {
       console.error("[RESET PASSWORD] Token not found");
       return res.status(400).json({ error: "Invalid or expired reset link" });
     }
-
-    const resetTokenData = tokenResult.rows[0];
 
     if (resetTokenData.used_at) {
       return res.status(400).json({ error: "Reset link has already been used" });
@@ -347,16 +356,16 @@ router.post("/reset-password", async (req: Request, res: Response) => {
     const passwordHash = await hashPassword(password);
 
     // Update user password
-    await pool.query(
-      "UPDATE users SET password_hash = $1 WHERE id = $2",
-      [passwordHash, resetTokenData.user_id]
-    );
+    await supabase
+      .from('users')
+      .update({ password_hash: passwordHash })
+      .eq('id', resetTokenData.user_id);
 
     // Mark token as used
-    await pool.query(
-      "UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE token = $1",
-      [token]
-    );
+    await supabase
+      .from('password_reset_tokens')
+      .update({ used_at: new Date().toISOString() })
+      .eq('token', token);
 
     res.json({ success: true, message: "Password reset successfully" });
   } catch (error: any) {
