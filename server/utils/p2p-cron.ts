@@ -1,4 +1,4 @@
-import { getPostgresPool } from "./postgres";
+import { supabase } from "./supabase";
 import { createP2PNotification } from "./p2p-notifications";
 
 /**

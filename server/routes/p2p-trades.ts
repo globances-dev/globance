@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { getPostgresPool } from "../utils/postgres";
+import { supabase } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 import { rateLimit } from "../utils/rate-limit";
 import { createP2PNotification, sendP2PEmails } from "../utils/p2p-notifications";

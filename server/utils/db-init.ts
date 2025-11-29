@@ -1,4 +1,4 @@
-import { getPostgresPool } from './postgres.js';
+import { supabase } from "./supabase";
 
 const WITHDRAWALS_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS withdrawals (

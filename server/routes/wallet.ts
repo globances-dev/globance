@@ -3,7 +3,7 @@ import { verifyToken } from '../utils/jwt';
 import { createPermanentDepositAddress, getMinimumUSDT } from '../utils/nowpayments';
 import { sendWithdrawalNotificationEmail } from '../utils/email';
 import { z } from 'zod';
-import { getPostgresPool } from '../utils/postgres.js';
+import { supabase } from "../utils/supabase";
 
 const router = Router();
 

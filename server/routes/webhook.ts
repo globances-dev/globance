@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getPostgresPool } from '../utils/postgres';
+import { supabase } from "../utils/supabase";
 import { verifyIPNSignature, NOWPaymentsWebhookPayload, getMinimumUSDT } from '../utils/nowpayments';
 import { sendDepositConfirmationEmail } from '../utils/email';
 

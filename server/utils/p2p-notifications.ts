@@ -1,4 +1,4 @@
-import { getPostgresPool } from './postgres';
+import { supabase } from "./supabase";
 import { sendEmail } from './email';
 
 export async function createP2PNotification(

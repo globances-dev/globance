@@ -1,4 +1,4 @@
-import { getPostgresPool } from "./postgres";
+import { supabase } from "./supabase";
 
 export const PACKAGES_CONFIG = [
   {

@@ -1,4 +1,5 @@
-import { getPostgresPool, getEnvironmentInfo } from '../utils/postgres';
+import { supabase } from "../utils/supabase";
+import { getEnvironmentInfo } from '../utils/postgres';
 import { hashPassword, generateReferralCode } from '../utils/crypto';
 import { signToken } from '../utils/jwt';
 

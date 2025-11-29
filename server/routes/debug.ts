@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getPostgresPool } from '../utils/postgres';
+import { supabase } from "../utils/supabase";
 import crypto from 'crypto';
 import { hashPassword, generateReferralCode } from '../utils/crypto';
 

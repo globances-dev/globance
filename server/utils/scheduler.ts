@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import type { ScheduledTask } from "node-cron";
-import { getPostgresPool, getEnvironmentInfo } from "./postgres";
+import { supabase } from "./supabase";
+import { getEnvironmentInfo } from "./postgres";
 import {
   recordReferralBonus,
   recordEarningsTransaction,

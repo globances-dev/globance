@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import { Pool } from "pg";
 import { verifyToken } from "../utils/jwt";
-import { getPostgresPool } from "../utils/postgres";
+import { supabase } from "../utils/supabase";
 
 const router = Router();
 
