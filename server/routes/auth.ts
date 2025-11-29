@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseAdmin } from "../utils/supabase";
 import { signToken, verifyToken } from "../utils/jwt";
 import {
   hashPassword,
