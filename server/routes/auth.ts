@@ -365,20 +365,21 @@ router.post("/reset-password", async (req: Request, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseAdmin();
 
     // Find and validate token
-    const tokenResult = await pool.query(
-      "SELECT user_id, expires_at, used_at FROM password_reset_tokens WHERE token = $1",
-      [token]
-    );
+    const { data: tokens, error: tokenError } = await supabase
+      .from("password_reset_tokens")
+      .select("user_id, expires_at, used_at")
+      .eq("token", token)
+      .limit(1);
 
-    if (!tokenResult.rows || tokenResult.rows.length === 0) {
+    if (tokenError || !tokens || tokens.length === 0) {
       console.error("[RESET PASSWORD] Token not found");
       return res.status(400).json({ error: "Invalid or expired reset link" });
     }
 
-    const resetTokenData = tokenResult.rows[0];
+    const resetTokenData = tokens[0];
 
     if (resetTokenData.used_at) {
       return res.status(400).json({ error: "Reset link has already been used" });
@@ -393,16 +394,20 @@ router.post("/reset-password", async (req: Request, res: Response) => {
     const passwordHash = await hashPassword(password);
 
     // Update user password
-    await pool.query(
-      "UPDATE users SET password_hash = $1 WHERE id = $2",
-      [passwordHash, resetTokenData.user_id]
-    );
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ password_hash: passwordHash })
+      .eq("id", resetTokenData.user_id);
+
+    if (updateError) {
+      throw updateError;
+    }
 
     // Mark token as used
-    await pool.query(
-      "UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE token = $1",
-      [token]
-    );
+    await supabase
+      .from("password_reset_tokens")
+      .update({ used_at: new Date().toISOString() })
+      .eq("token", token);
 
     res.json({ success: true, message: "Password reset successfully" });
   } catch (error: any) {
