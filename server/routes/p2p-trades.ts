@@ -36,13 +36,17 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT role FROM users WHERE id = $1",
-      [decoded.id]
-    );
+    const { data, error } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", decoded.id)
+      .single();
 
-    if (!result.rows.length || result.rows[0].role !== "admin") {
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!data || data.role !== "admin") {
       return res.status(403).json({ error: "Admin access required" });
     }
 
@@ -54,34 +58,70 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 };
 
+// Helper to hydrate trades with related info
+const hydrateTrades = async (trades: any[]) => {
+  if (!trades.length) return [];
+
+  const offerIds = Array.from(new Set(trades.map((t) => t.offer_id)));
+  const userIds = Array.from(
+    new Set(trades.flatMap((t) => [t.buyer_id, t.seller_id]))
+  );
+
+  const [{ data: offers, error: offersError }, { data: users, error: usersError }] = await Promise.all([
+    supabase.from("offers").select("id, side, price_fiat_per_usdt, payment_method_ids, fiat_currency_code").in("id", offerIds),
+    supabase.from("users").select("id, email, username").in("id", userIds),
+  ]);
+
+  if (offersError) throw new Error(offersError.message);
+  if (usersError) throw new Error(usersError.message);
+
+  const offerMap = (offers || []).reduce((acc, offer) => {
+    acc[offer.id] = offer;
+    return acc;
+  }, {} as Record<string, any>);
+
+  const userMap = (users || []).reduce((acc, user) => {
+    acc[user.id] = user;
+    return acc;
+  }, {} as Record<string, any>);
+
+  return trades.map((trade) => {
+    const offer = offerMap[trade.offer_id] || {};
+    return {
+      ...trade,
+      offer_type: offer.side,
+      offer_price: offer.price_fiat_per_usdt,
+      payment_methods: offer.payment_method_ids,
+      buyer_email: userMap[trade.buyer_id]?.email,
+      buyer_name: userMap[trade.buyer_id]?.username,
+      seller_email: userMap[trade.seller_id]?.email,
+      seller_name: userMap[trade.seller_id]?.username,
+    };
+  });
+};
+
 // Get user's trades (as buyer or seller)
 router.get("/my-trades", authMiddleware, async (req: any, res: Response) => {
   try {
     const { status } = req.query;
-    const pool = getPostgresPool();
 
-    let query = `
-      SELECT t.*, 
-             o.side as offer_type, o.price_fiat_per_usdt as offer_price,
-             b.email as buyer_email, b.username as buyer_name,
-             s.email as seller_email, s.username as seller_name
-      FROM p2p_trades t
-      JOIN p2p_offers o ON t.offer_id = o.id
-      JOIN users b ON t.buyer_id = b.id
-      JOIN users s ON t.seller_id = s.id
-      WHERE (t.buyer_id = $1 OR t.seller_id = $1)
-    `;
-    const params: any[] = [req.user.id];
+    let tradesQuery = supabase
+      .from("trades")
+      .select("*")
+      .or(`buyer_id.eq.${req.user.id},seller_id.eq.${req.user.id}`)
+      .order("created_at", { ascending: false });
 
     if (status) {
-      params.push(status);
-      query += ` AND t.status = $${params.length}`;
+      tradesQuery = tradesQuery.eq("status", status as string);
     }
 
-    query += " ORDER BY t.created_at DESC";
+    const { data: trades, error } = await tradesQuery;
+    if (error) {
+      throw new Error(error.message);
+    }
 
-    const result = await pool.query(query, params);
-    res.json({ trades: result.rows || [] });
+    const hydrated = await hydrateTrades(trades || []);
+    res.json({ trades: hydrated });
   } catch (error: any) {
     console.error("[P2P Trades] Get my trades error:", error);
     res.status(400).json({ error: error.message });
@@ -91,25 +131,22 @@ router.get("/my-trades", authMiddleware, async (req: any, res: Response) => {
 // Get single trade
 router.get("/:id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    
-    const result = await pool.query(`
-      SELECT t.*, 
-             o.side as offer_type, o.price_fiat_per_usdt as offer_price, o.payment_method_ids as payment_methods,
-             b.email as buyer_email, b.username as buyer_name,
-             s.email as seller_email, s.username as seller_name
-      FROM p2p_trades t
-      JOIN p2p_offers o ON t.offer_id = o.id
-      JOIN users b ON t.buyer_id = b.id
-      JOIN users s ON t.seller_id = s.id
-      WHERE t.id = $1 AND (t.buyer_id = $2 OR t.seller_id = $2)
-    `, [req.params.id, req.user.id]);
+    const { data: tradeData, error: tradeError } = await supabase
+      .from("trades")
+      .select("*")
+      .eq("id", req.params.id)
+      .or(`buyer_id.eq.${req.user.id},seller_id.eq.${req.user.id}`)
+      .single();
 
-    if (!result.rows.length) {
-      return res.status(404).json({ error: "Trade not found or access denied" });
+    if (tradeError) {
+      if (tradeError.code === "PGRST116") {
+        return res.status(404).json({ error: "Trade not found or access denied" });
+      }
+      throw new Error(tradeError.message);
     }
 
-    res.json({ trade: result.rows[0] });
+    const [hydrated] = await hydrateTrades([tradeData]);
+    res.json({ trade: hydrated });
   } catch (error: any) {
     console.error("[P2P Trades] Get trade error:", error);
     res.status(400).json({ error: error.message });
@@ -131,19 +168,19 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const { data: offer, error: offerError } = await supabase
+      .from("offers")
+      .select("*")
+      .eq("id", offer_id)
+      .eq("is_active", true)
+      .single();
 
-    // Get offer
-    const offerResult = await pool.query(
-      "SELECT * FROM p2p_offers WHERE id = $1 AND is_active = true",
-      [offer_id]
-    );
-
-    if (!offerResult.rows.length) {
-      return res.status(404).json({ error: "Offer not found or inactive" });
+    if (offerError) {
+      if (offerError.code === "PGRST116") {
+        return res.status(404).json({ error: "Offer not found or inactive" });
+      }
+      throw new Error(offerError.message);
     }
-
-    const offer = offerResult.rows[0];
 
     if (offer.user_id === req.user.id) {
       return res.status(400).json({ error: "Cannot trade with yourself" });
@@ -171,12 +208,15 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
     const seller_id = isBuyOffer ? req.user.id : offer.user_id;
 
     // Verify buyer payment method
-    const buyerMethodResult = await pool.query(
-      "SELECT * FROM user_payment_methods WHERE id = $1 AND user_id = $2 AND fiat_currency_code = $3",
-      [buyer_payment_method_id, buyer_id, offer.fiat_currency_code]
-    );
+    const { data: buyerMethod, error: buyerMethodError } = await supabase
+      .from("user_payment_methods")
+      .select("id")
+      .eq("id", buyer_payment_method_id)
+      .eq("user_id", buyer_id)
+      .eq("fiat_currency_code", offer.fiat_currency_code)
+      .single();
 
-    if (!buyerMethodResult.rows.length) {
+    if (buyerMethodError) {
       return res.status(400).json({
         error: "Invalid payment method or fiat currency mismatch",
       });
@@ -184,12 +224,16 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
 
     // For SELL offers, check seller has enough free USDT and lock in escrow
     if (!isBuyOffer) {
-      const walletResult = await pool.query(
-        "SELECT usdt_balance, escrow_balance FROM wallets WHERE user_id = $1",
-        [seller_id]
-      );
+      const { data: wallet, error: walletError } = await supabase
+        .from("wallets")
+        .select("usdt_balance, escrow_balance")
+        .eq("user_id", seller_id)
+        .single();
 
-      const wallet = walletResult.rows[0];
+      if (walletError) {
+        throw new Error(walletError.message);
+      }
+
       const freeBalance = parseFloat(wallet?.usdt_balance || 0) - parseFloat(wallet?.escrow_balance || 0);
 
       if (freeBalance < amount_usdt) {
@@ -198,49 +242,68 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
         });
       }
 
-      // Lock funds in escrow
-      await pool.query(
-        "UPDATE wallets SET escrow_balance = escrow_balance + $1 WHERE user_id = $2",
-        [amount_usdt, seller_id]
-      );
+      const newEscrow = parseFloat(wallet.escrow_balance || 0) + amount_usdt;
+      const { error: lockError } = await supabase
+        .from("wallets")
+        .update({ escrow_balance: newEscrow })
+        .eq("user_id", seller_id);
+
+      if (lockError) {
+        throw new Error(lockError.message);
+      }
     }
 
     // Create trade with 30-minute payment window
     const payment_deadline = new Date();
     payment_deadline.setMinutes(payment_deadline.getMinutes() + 30);
 
-    const tradeResult = await pool.query(`
-      INSERT INTO p2p_trades (offer_id, buyer_id, seller_id, amount_usdt, price_fiat_per_usdt, 
-                              total_fiat, fiat_currency_code, status, 
-                              escrow_amount_usdt, payment_deadline)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9)
-      RETURNING *
-    `, [offer_id, buyer_id, seller_id, amount_usdt, offer.price_fiat_per_usdt, 
-        total_fiat, offer.fiat_currency_code, 
-        isBuyOffer ? 0 : amount_usdt, payment_deadline]);
+    const { data: tradeResult, error: tradeError } = await supabase
+      .from("trades")
+      .insert({
+        offer_id,
+        buyer_id,
+        seller_id,
+        amount_usdt,
+        price_fiat_per_usdt: offer.price_fiat_per_usdt,
+        total_fiat,
+        fiat_currency_code: offer.fiat_currency_code,
+        status: "pending",
+        escrow_amount_usdt: isBuyOffer ? 0 : amount_usdt,
+        payment_deadline: payment_deadline.toISOString(),
+        created_at: new Date().toISOString(),
+      })
+      .select("*")
+      .single();
 
-    const trade = tradeResult.rows[0];
+    if (tradeError || !tradeResult) {
+      return res.status(400).json({ error: tradeError?.message || "Failed to create trade" });
+    }
 
-    // Update offer remaining amount
-    await pool.query(`
-      UPDATE p2p_offers 
-      SET remaining_amount_usdt = remaining_amount_usdt - $1,
-          is_active = (remaining_amount_usdt - $1) > 0,
-          updated_at = NOW()
-      WHERE id = $2
-    `, [amount_usdt, offer_id]);
+    const newRemaining = remainingAmount - amount_usdt;
+    const { error: offerUpdateError } = await supabase
+      .from("offers")
+      .update({
+        remaining_amount_usdt: newRemaining,
+        is_active: newRemaining > 0,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", offer_id);
+
+    if (offerUpdateError) {
+      throw new Error(offerUpdateError.message);
+    }
 
     // Create notifications (non-blocking)
     (async () => {
       try {
-        await createP2PNotification(buyer_id, 'trade_started', 'Trade Started', `You have started a P2P trade for ${amount_usdt} USDT`, { trade_id: trade.id });
-        await createP2PNotification(seller_id, 'trade_started', 'New Trade', `A buyer has taken your offer for ${amount_usdt} USDT`, { trade_id: trade.id });
+        await createP2PNotification(buyer_id, "trade_started", "Trade Started", `You have started a P2P trade for ${amount_usdt} USDT`, { trade_id: tradeResult.id });
+        await createP2PNotification(seller_id, "trade_started", "New Trade", `A buyer has taken your offer for ${amount_usdt} USDT`, { trade_id: tradeResult.id });
       } catch (err) {
-        console.error('Error creating trade notifications:', err);
+        console.error("Error creating trade notifications:", err);
       }
     })();
 
-    res.json({ success: true, trade });
+    res.json({ success: true, trade: tradeResult });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
@@ -263,40 +326,46 @@ router.post("/:id/payment-sent", authMiddleware, async (req: any, res: Response)
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const { data: trade, error: tradeError } = await supabase
+      .from("trades")
+      .select("*")
+      .eq("id", req.params.id)
+      .eq("buyer_id", req.user.id)
+      .eq("status", "pending")
+      .single();
 
-    const tradeResult = await pool.query(
-      "SELECT * FROM p2p_trades WHERE id = $1 AND buyer_id = $2 AND status = 'pending'",
-      [req.params.id, req.user.id]
-    );
-
-    if (!tradeResult.rows.length) {
-      return res.status(404).json({ error: "Trade not found or already processed" });
+    if (tradeError) {
+      if (tradeError.code === "PGRST116") {
+        return res.status(404).json({ error: "Trade not found or already processed" });
+      }
+      throw new Error(tradeError.message);
     }
-
-    const trade = tradeResult.rows[0];
 
     if (new Date(trade.payment_deadline) < new Date()) {
       return res.status(400).json({ error: "Payment deadline has passed" });
     }
 
-    const result = await pool.query(`
-      UPDATE p2p_trades 
-      SET status = 'payment_sent', updated_at = NOW()
-      WHERE id = $1
-      RETURNING *
-    `, [req.params.id]);
+    const { data: updatedTrade, error: updateError } = await supabase
+      .from("trades")
+      .update({ status: "payment_sent", updated_at: new Date().toISOString(), payment_receipt_url: payment_receipt_url || null })
+      .eq("id", req.params.id)
+      .select("*")
+      .single();
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
 
     // Create notifications (non-blocking)
     (async () => {
       try {
-        await createP2PNotification(trade.seller_id, 'payment_sent', 'Payment Marked', `Buyer marked payment as sent for ${trade.amount_usdt} USDT`, { trade_id: trade.id });
+        await createP2PNotification(trade.seller_id, "payment_sent", "Payment Marked", `Buyer marked payment as sent for ${trade.amount_usdt} USDT`, { trade_id: trade.id });
       } catch (err) {
-        console.error('Error creating payment notification:', err);
+        console.error("Error creating payment notification:", err);
       }
     })();
 
-    res.json({ success: true, trade: result.rows[0] });
+    res.json({ success: true, trade: updatedTrade });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
@@ -309,52 +378,87 @@ router.post("/:id/payment-sent", authMiddleware, async (req: any, res: Response)
 // Release USDT (seller confirms payment received)
 router.post("/:id/release", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const { data: trade, error: tradeError } = await supabase
+      .from("trades")
+      .select("*")
+      .eq("id", req.params.id)
+      .eq("seller_id", req.user.id)
+      .eq("status", "payment_sent")
+      .single();
 
-    const tradeResult = await pool.query(
-      "SELECT * FROM p2p_trades WHERE id = $1 AND seller_id = $2 AND status = 'payment_sent'",
-      [req.params.id, req.user.id]
-    );
-
-    if (!tradeResult.rows.length) {
-      return res.status(404).json({
-        error: "Trade not found or not ready for release",
-      });
+    if (tradeError) {
+      if (tradeError.code === "PGRST116") {
+        return res.status(404).json({
+          error: "Trade not found or not ready for release",
+        });
+      }
+      throw new Error(tradeError.message);
     }
 
-    const trade = tradeResult.rows[0];
-
     // Release from seller escrow
-    await pool.query(
-      "UPDATE wallets SET escrow_balance = escrow_balance - $1 WHERE user_id = $2",
-      [trade.escrow_amount_usdt, trade.seller_id]
-    );
+    const { data: sellerWallet, error: sellerWalletError } = await supabase
+      .from("wallets")
+      .select("escrow_balance")
+      .eq("user_id", trade.seller_id)
+      .single();
+
+    if (sellerWalletError) {
+      throw new Error(sellerWalletError.message);
+    }
+
+    const newEscrow = parseFloat(sellerWallet?.escrow_balance || 0) - parseFloat(trade.escrow_amount_usdt || 0);
+    const { error: updateSeller } = await supabase
+      .from("wallets")
+      .update({ escrow_balance: newEscrow })
+      .eq("user_id", trade.seller_id);
+
+    if (updateSeller) {
+      throw new Error(updateSeller.message);
+    }
 
     // Add to buyer balance
-    await pool.query(
-      "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-      [trade.amount_usdt, trade.buyer_id]
-    );
+    const { data: buyerWallet, error: buyerWalletError } = await supabase
+      .from("wallets")
+      .select("usdt_balance")
+      .eq("user_id", trade.buyer_id)
+      .single();
 
-    // Update trade status
-    const result = await pool.query(`
-      UPDATE p2p_trades 
-      SET status = 'completed', completed_at = NOW(), updated_at = NOW()
-      WHERE id = $1
-      RETURNING *
-    `, [req.params.id]);
+    if (buyerWalletError) {
+      throw new Error(buyerWalletError.message);
+    }
+
+    const newBuyerBalance = parseFloat(buyerWallet?.usdt_balance || 0) + parseFloat(trade.amount_usdt || 0);
+    const { error: updateBuyer } = await supabase
+      .from("wallets")
+      .update({ usdt_balance: newBuyerBalance })
+      .eq("user_id", trade.buyer_id);
+
+    if (updateBuyer) {
+      throw new Error(updateBuyer.message);
+    }
+
+    const { data: updatedTrade, error: updateTradeError } = await supabase
+      .from("trades")
+      .update({ status: "completed", completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("id", req.params.id)
+      .select("*")
+      .single();
+
+    if (updateTradeError) {
+      throw new Error(updateTradeError.message);
+    }
 
     // Create notifications (non-blocking)
     (async () => {
       try {
-        await createP2PNotification(trade.buyer_id, 'released', 'Funds Released', `Seller released ${trade.amount_usdt} USDT to your wallet`, { trade_id: trade.id });
-        await createP2PNotification(trade.seller_id, 'released', 'Trade Completed', `You released ${trade.amount_usdt} USDT. Trade completed`, { trade_id: trade.id });
+        await createP2PNotification(trade.buyer_id, "released", "Funds Released", `Seller released ${trade.amount_usdt} USDT to your wallet`, { trade_id: trade.id });
+        await createP2PNotification(trade.seller_id, "released", "Trade Completed", `You released ${trade.amount_usdt} USDT. Trade completed`, { trade_id: trade.id });
       } catch (err) {
-        console.error('Error creating release notifications:', err);
+        console.error("Error creating release notifications:", err);
       }
     })();
 
-    res.json({ success: true, trade: result.rows[0] });
+    res.json({ success: true, trade: updatedTrade });
   } catch (error: any) {
     console.error("[P2P Trades] Release error:", error);
     res.status(400).json({ error: error.message });
@@ -364,55 +468,89 @@ router.post("/:id/release", authMiddleware, async (req: any, res: Response) => {
 // Cancel trade (buyer only, before payment sent)
 router.post("/:id/cancel", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const { data: trade, error: tradeError } = await supabase
+      .from("trades")
+      .select("*")
+      .eq("id", req.params.id)
+      .eq("buyer_id", req.user.id)
+      .eq("status", "pending")
+      .single();
 
-    const tradeResult = await pool.query(
-      "SELECT * FROM p2p_trades WHERE id = $1 AND buyer_id = $2 AND status = 'pending'",
-      [req.params.id, req.user.id]
-    );
-
-    if (!tradeResult.rows.length) {
-      return res.status(404).json({ 
-        error: "Trade not found. Only buyers can cancel pending trades before marking payment as sent." 
-      });
+    if (tradeError) {
+      if (tradeError.code === "PGRST116") {
+        return res.status(404).json({
+          error: "Trade not found. Only buyers can cancel pending trades before marking payment as sent.",
+        });
+      }
+      throw new Error(tradeError.message);
     }
-
-    const trade = tradeResult.rows[0];
 
     // Release escrow back to seller
     if (parseFloat(trade.escrow_amount_usdt || 0) > 0) {
-      await pool.query(
-        "UPDATE wallets SET escrow_balance = escrow_balance - $1 WHERE user_id = $2",
-        [trade.escrow_amount_usdt, trade.seller_id]
-      );
+      const { data: sellerWallet, error: sellerWalletError } = await supabase
+        .from("wallets")
+        .select("escrow_balance")
+        .eq("user_id", trade.seller_id)
+        .single();
+
+      if (sellerWalletError) {
+        throw new Error(sellerWalletError.message);
+      }
+
+      const newEscrow = parseFloat(sellerWallet?.escrow_balance || 0) - parseFloat(trade.escrow_amount_usdt || 0);
+      const { error: updateSeller } = await supabase
+        .from("wallets")
+        .update({ escrow_balance: newEscrow })
+        .eq("user_id", trade.seller_id);
+
+      if (updateSeller) {
+        throw new Error(updateSeller.message);
+      }
     }
 
     // Return amount to offer
-    await pool.query(`
-      UPDATE p2p_offers 
-      SET remaining_amount_usdt = remaining_amount_usdt + $1, is_active = true, updated_at = NOW()
-      WHERE id = $2
-    `, [trade.amount_usdt, trade.offer_id]);
+    const { data: offerData, error: offerError } = await supabase
+      .from("offers")
+      .select("remaining_amount_usdt")
+      .eq("id", trade.offer_id)
+      .single();
 
-    // Update trade
-    const result = await pool.query(`
-      UPDATE p2p_trades 
-      SET status = 'cancelled', updated_at = NOW()
-      WHERE id = $1
-      RETURNING *
-    `, [req.params.id]);
+    if (offerError) {
+      throw new Error(offerError.message);
+    }
+
+    const newRemaining = parseFloat(offerData?.remaining_amount_usdt || 0) + parseFloat(trade.amount_usdt || 0);
+    const { error: updateOffer } = await supabase
+      .from("offers")
+      .update({ remaining_amount_usdt: newRemaining, is_active: true, updated_at: new Date().toISOString() })
+      .eq("id", trade.offer_id);
+
+    if (updateOffer) {
+      throw new Error(updateOffer.message);
+    }
+
+    const { data: updatedTrade, error: updateTradeError } = await supabase
+      .from("trades")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("id", req.params.id)
+      .select("*")
+      .single();
+
+    if (updateTradeError) {
+      throw new Error(updateTradeError.message);
+    }
 
     // Create notifications (non-blocking)
     (async () => {
       try {
-        await createP2PNotification(trade.buyer_id, 'cancelled', 'Trade Cancelled', `You cancelled the trade. Amount returned to seller`, { trade_id: trade.id });
-        await createP2PNotification(trade.seller_id, 'cancelled', 'Trade Cancelled', `Buyer cancelled the trade. Escrow released back to your wallet`, { trade_id: trade.id });
+        await createP2PNotification(trade.buyer_id, "cancelled", "Trade Cancelled", `You cancelled the trade. Amount returned to seller`, { trade_id: trade.id });
+        await createP2PNotification(trade.seller_id, "cancelled", "Trade Cancelled", `Buyer cancelled the trade. Escrow released back to your wallet`, { trade_id: trade.id });
       } catch (err) {
-        console.error('Error creating cancel notifications:', err);
+        console.error("Error creating cancel notifications:", err);
       }
     })();
 
-    res.json({ success: true, trade: result.rows[0] });
+    res.json({ success: true, trade: updatedTrade });
   } catch (error: any) {
     console.error("[P2P Trades] Cancel error:", error);
     res.status(400).json({ error: error.message });
@@ -432,39 +570,45 @@ router.post("/:id/dispute", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const { data: trade, error: tradeError } = await supabase
+      .from("trades")
+      .select("*")
+      .eq("id", req.params.id)
+      .in("status", ["payment_sent"])
+      .or(`buyer_id.eq.${req.user.id},seller_id.eq.${req.user.id}`)
+      .single();
 
-    const tradeResult = await pool.query(
-      "SELECT * FROM p2p_trades WHERE id = $1 AND (buyer_id = $2 OR seller_id = $2) AND status = 'payment_sent'",
-      [req.params.id, req.user.id]
-    );
-
-    if (!tradeResult.rows.length) {
-      return res.status(404).json({
-        error: "Trade not found or cannot be disputed",
-      });
+    if (tradeError) {
+      if (tradeError.code === "PGRST116") {
+        return res.status(404).json({
+          error: "Trade not found or cannot be disputed",
+        });
+      }
+      throw new Error(tradeError.message);
     }
 
-    const trade = tradeResult.rows[0];
+    const { data: updatedTrade, error: updateError } = await supabase
+      .from("trades")
+      .update({ status: "disputed", dispute_reason, updated_at: new Date().toISOString() })
+      .eq("id", req.params.id)
+      .select("*")
+      .single();
 
-    const result = await pool.query(`
-      UPDATE p2p_trades 
-      SET status = 'disputed', dispute_reason = $1, updated_at = NOW()
-      WHERE id = $2
-      RETURNING *
-    `, [dispute_reason, req.params.id]);
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
 
     // Create notifications (non-blocking)
     (async () => {
       try {
-        await createP2PNotification(trade.buyer_id, 'dispute_opened', 'Dispute Opened', `Dispute opened on trade. Admin will review shortly`, { trade_id: trade.id });
-        await createP2PNotification(trade.seller_id, 'dispute_opened', 'Dispute Opened', `Dispute opened on trade. Admin will review shortly`, { trade_id: trade.id });
+        await createP2PNotification(trade.buyer_id, "dispute_opened", "Dispute Opened", `Dispute opened on trade. Admin will review shortly`, { trade_id: trade.id });
+        await createP2PNotification(trade.seller_id, "dispute_opened", "Dispute Opened", `Dispute opened on trade. Admin will review shortly`, { trade_id: trade.id });
       } catch (err) {
-        console.error('Error creating dispute notifications:', err);
+        console.error("Error creating dispute notifications:", err);
       }
     })();
 
-    res.json({ success: true, trade: result.rows[0] });
+    res.json({ success: true, trade: updatedTrade });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
@@ -484,68 +628,125 @@ router.post("/:id/resolve-dispute", adminMiddleware, async (req: any, res: Respo
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const { data: trade, error: tradeError } = await supabase
+      .from("trades")
+      .select("*")
+      .eq("id", req.params.id)
+      .eq("status", "disputed")
+      .single();
 
-    const tradeResult = await pool.query(
-      "SELECT * FROM p2p_trades WHERE id = $1 AND status = 'disputed'",
-      [req.params.id]
-    );
-
-    if (!tradeResult.rows.length) {
-      return res.status(404).json({ error: "Disputed trade not found" });
+    if (tradeError) {
+      if (tradeError.code === "PGRST116") {
+        return res.status(404).json({ error: "Disputed trade not found" });
+      }
+      throw new Error(tradeError.message);
     }
 
-    const trade = tradeResult.rows[0];
     const newStatus = resolution === "buyer" ? "completed" : "cancelled";
 
     // Handle funds based on resolution
     if (resolution === "buyer") {
-      // Release to buyer
-      await pool.query(
-        "UPDATE wallets SET escrow_balance = escrow_balance - $1 WHERE user_id = $2",
-        [trade.escrow_amount_usdt, trade.seller_id]
-      );
-      await pool.query(
-        "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-        [trade.amount_usdt, trade.buyer_id]
-      );
+      const { data: sellerWallet, error: sellerWalletError } = await supabase
+        .from("wallets")
+        .select("escrow_balance")
+        .eq("user_id", trade.seller_id)
+        .single();
+
+      if (sellerWalletError) {
+        throw new Error(sellerWalletError.message);
+      }
+
+      const updatedEscrow = parseFloat(sellerWallet?.escrow_balance || 0) - parseFloat(trade.escrow_amount_usdt || 0);
+      const { error: updateSeller } = await supabase
+        .from("wallets")
+        .update({ escrow_balance: updatedEscrow })
+        .eq("user_id", trade.seller_id);
+
+      if (updateSeller) {
+        throw new Error(updateSeller.message);
+      }
+
+      const { data: buyerWallet, error: buyerWalletError } = await supabase
+        .from("wallets")
+        .select("usdt_balance")
+        .eq("user_id", trade.buyer_id)
+        .single();
+
+      if (buyerWalletError) {
+        throw new Error(buyerWalletError.message);
+      }
+
+      const newBuyerBalance = parseFloat(buyerWallet?.usdt_balance || 0) + parseFloat(trade.amount_usdt || 0);
+      const { error: updateBuyer } = await supabase
+        .from("wallets")
+        .update({ usdt_balance: newBuyerBalance })
+        .eq("user_id", trade.buyer_id);
+
+      if (updateBuyer) {
+        throw new Error(updateBuyer.message);
+      }
     } else {
-      // Return to seller
-      await pool.query(
-        "UPDATE wallets SET escrow_balance = escrow_balance - $1, usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-        [trade.escrow_amount_usdt, trade.seller_id]
-      );
+      const { data: sellerWallet, error: sellerWalletError } = await supabase
+        .from("wallets")
+        .select("escrow_balance, usdt_balance")
+        .eq("user_id", trade.seller_id)
+        .single();
+
+      if (sellerWalletError) {
+        throw new Error(sellerWalletError.message);
+      }
+
+      const updatedEscrow = parseFloat(sellerWallet?.escrow_balance || 0) - parseFloat(trade.escrow_amount_usdt || 0);
+      const updatedBalance = parseFloat(sellerWallet?.usdt_balance || 0) + parseFloat(trade.escrow_amount_usdt || 0);
+      const { error: updateSeller } = await supabase
+        .from("wallets")
+        .update({ escrow_balance: updatedEscrow, usdt_balance: updatedBalance })
+        .eq("user_id", trade.seller_id);
+
+      if (updateSeller) {
+        throw new Error(updateSeller.message);
+      }
     }
 
-    // Update trade
-    const result = await pool.query(`
-      UPDATE p2p_trades 
-      SET status = $1, dispute_resolved_by = $2, dispute_resolution = $3, 
-          completed_at = NOW(), updated_at = NOW()
-      WHERE id = $4
-      RETURNING *
-    `, [newStatus, req.user.id, notes || `Resolved in favor of ${resolution}`, req.params.id]);
+    const { data: updatedTrade, error: updateTradeError } = await supabase
+      .from("trades")
+      .update({
+        status: newStatus,
+        dispute_resolved_by: req.user.id,
+        dispute_resolution: notes || `Resolved in favor of ${resolution}`,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", req.params.id)
+      .select("*")
+      .single();
 
-    // Audit log
-    await pool.query(`
-      INSERT INTO audit_logs (admin_id, action, resource_type, resource_id, details)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [req.user.id, "p2p_dispute_resolved", "trade", trade.id, JSON.stringify({ resolution, notes })]);
+    if (updateTradeError) {
+      throw new Error(updateTradeError.message);
+    }
+
+    await supabase.from("audit_logs").insert({
+      admin_id: req.user.id,
+      action: "p2p_dispute_resolved",
+      resource_type: "trade",
+      resource_id: trade.id,
+      details: JSON.stringify({ resolution, notes }),
+    });
 
     // Create notifications (non-blocking)
     (async () => {
       try {
         const beneficiary = resolution === "buyer" ? trade.buyer_id : trade.seller_id;
         const loser = resolution === "buyer" ? trade.seller_id : trade.buyer_id;
-        
-        await createP2PNotification(beneficiary, 'dispute_resolved', 'Dispute Resolved - You Won', `Admin resolved dispute in your favor`, { trade_id: trade.id });
-        await createP2PNotification(loser, 'dispute_resolved', 'Dispute Resolved', `Admin resolved dispute. Resolution: ${resolution}`, { trade_id: trade.id });
+
+        await createP2PNotification(beneficiary, "dispute_resolved", "Dispute Resolved - You Won", `Admin resolved dispute in your favor`, { trade_id: trade.id });
+        await createP2PNotification(loser, "dispute_resolved", "Dispute Resolved", `Admin resolved dispute. Resolution: ${resolution}`, { trade_id: trade.id });
       } catch (err) {
-        console.error('Error creating dispute resolved notifications:', err);
+        console.error("Error creating dispute resolved notifications:", err);
       }
     })();
 
-    res.json({ success: true, trade: result.rows[0] });
+    res.json({ success: true, trade: updatedTrade });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
@@ -558,22 +759,18 @@ router.post("/:id/resolve-dispute", adminMiddleware, async (req: any, res: Respo
 // Get disputed trades (admin only)
 router.get("/admin/disputes", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    
-    const result = await pool.query(`
-      SELECT t.*, 
-             o.side as offer_type, o.price_fiat_per_usdt as offer_price,
-             b.email as buyer_email, b.username as buyer_name,
-             s.email as seller_email, s.username as seller_name
-      FROM p2p_trades t
-      JOIN p2p_offers o ON t.offer_id = o.id
-      JOIN users b ON t.buyer_id = b.id
-      JOIN users s ON t.seller_id = s.id
-      WHERE t.status = 'disputed'
-      ORDER BY t.created_at DESC
-    `);
+    const { data: trades, error } = await supabase
+      .from("trades")
+      .select("*")
+      .eq("status", "disputed")
+      .order("created_at", { ascending: false });
 
-    res.json({ trades: result.rows || [] });
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const hydrated = await hydrateTrades(trades || []);
+    res.json({ trades: hydrated });
   } catch (error: any) {
     console.error("[P2P Trades] Get disputes error:", error);
     res.status(400).json({ error: error.message });

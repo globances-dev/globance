@@ -25,46 +25,84 @@ const authMiddleware = async (req: any, res: Response, next: Function) => {
 router.get("/", async (req: Request, res: Response) => {
   try {
     const { side, fiat_currency_code, country, payment_method } = req.query;
-    const pool = getPostgresPool();
 
-    let query = "SELECT o.*, u.email, u.username FROM offers o LEFT JOIN users u ON o.user_id = u.id WHERE o.is_active = true AND o.remaining_amount_usdt > 0";
-    const params: any[] = [];
+    let offersQuery = supabase
+      .from("offers")
+      .select("*")
+      .eq("is_active", true)
+      .gt("remaining_amount_usdt", 0);
 
     if (side) {
-      query += " AND o.side = $" + (params.length + 1);
-      params.push(side);
+      offersQuery = offersQuery.eq("side", side as string);
     }
 
     if (fiat_currency_code) {
-      query += " AND o.fiat_currency_code = $" + (params.length + 1);
-      params.push(fiat_currency_code);
+      offersQuery = offersQuery.eq("fiat_currency_code", fiat_currency_code as string);
     }
 
     if (country) {
-      query += " AND o.country ILIKE $" + (params.length + 1);
-      params.push(`%${country}%`);
+      offersQuery = offersQuery.ilike("country", `%${country}%`);
     }
 
-    query += " ORDER BY o.price_fiat_per_usdt " + (side === "buy" ? "ASC" : "DESC");
+    const { data: offersData, error: offersError } = await offersQuery;
+    if (offersError) {
+      throw new Error(offersError.message);
+    }
 
-    const result = await pool.query(query, params);
-    const offers = result.rows || [];
+    const offers = offersData || [];
 
     // Filter by payment method if specified
     let filteredOffers = offers;
     if (payment_method && typeof payment_method === "string") {
-      const methodResult = await pool.query(
-        "SELECT id FROM user_payment_methods WHERE provider_name ILIKE $1",
-        [`%${payment_method}%`]
-      );
-      const methodIds = methodResult.rows?.map((m) => m.id) || [];
+      const { data: methods, error: methodsError } = await supabase
+        .from("user_payment_methods")
+        .select("id")
+        .ilike("provider_name", `%${payment_method}%`);
+
+      if (methodsError) {
+        throw new Error(methodsError.message);
+      }
+
+      const methodIds = methods?.map((m) => m.id) || [];
       filteredOffers = offers.filter((offer) => {
         const pmIds = offer.payment_method_ids || [];
         return pmIds.some((id: string) => methodIds.includes(id));
       });
     }
 
-    res.json({ offers: filteredOffers });
+    // Attach user info
+    const userIds = Array.from(new Set(filteredOffers.map((o: any) => o.user_id)));
+    let userMap: Record<string, any> = {};
+    if (userIds.length > 0) {
+      const { data: users, error: userError } = await supabase
+        .from("users")
+        .select("id, email, username")
+        .in("id", userIds);
+
+      if (userError) {
+        throw new Error(userError.message);
+      }
+
+      userMap = (users || []).reduce((acc, user) => {
+        acc[user.id] = user;
+        return acc;
+      }, {} as Record<string, any>);
+    }
+
+    const sortedOffers = [...filteredOffers].sort((a, b) => {
+      if (side === "buy") {
+        return a.price_fiat_per_usdt - b.price_fiat_per_usdt;
+      }
+      return b.price_fiat_per_usdt - a.price_fiat_per_usdt;
+    });
+
+    const offersWithUsers = sortedOffers.map((offer) => ({
+      ...offer,
+      email: userMap[offer.user_id]?.email,
+      username: userMap[offer.user_id]?.username,
+    }));
+
+    res.json({ offers: offersWithUsers });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -73,13 +111,17 @@ router.get("/", async (req: Request, res: Response) => {
 // Get user's own offers
 router.get("/my-offers", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT * FROM offers WHERE user_id = $1 ORDER BY created_at DESC",
-      [req.user.id]
-    );
+    const { data, error } = await supabase
+      .from("offers")
+      .select("*")
+      .eq("user_id", req.user.id)
+      .order("created_at", { ascending: false });
 
-    res.json({ offers: result.rows || [] });
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.json({ offers: data || [] });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -88,17 +130,30 @@ router.get("/my-offers", authMiddleware, async (req: any, res: Response) => {
 // Get single offer
 router.get("/:id", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT o.*, u.email, u.username FROM offers o LEFT JOIN users u ON o.user_id = u.id WHERE o.id = $1",
-      [req.params.id]
-    );
+    const { data: offerData, error: offerError } = await supabase
+      .from("offers")
+      .select("*")
+      .eq("id", req.params.id)
+      .single();
 
-    if (!result.rows || result.rows.length === 0) {
-      return res.status(404).json({ error: "Offer not found" });
+    if (offerError) {
+      if (offerError.code === "PGRST116") {
+        return res.status(404).json({ error: "Offer not found" });
+      }
+      throw new Error(offerError.message);
     }
 
-    res.json({ offer: result.rows[0] });
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("email, username")
+      .eq("id", offerData.user_id)
+      .single();
+
+    if (userError) {
+      throw new Error(userError.message);
+    }
+
+    res.json({ offer: { ...offerData, ...userData } });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -136,8 +191,6 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
         .json({ error: "min_limit_fiat must be less than max_limit_fiat" });
     }
 
-    const pool = getPostgresPool();
-
     // Validate max limits are consistent with total amount
     const total_fiat = total_amount_usdt * price_fiat_per_usdt;
     if (max_limit_fiat > total_fiat) {
@@ -147,18 +200,23 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
     }
 
     // Get fiat currency and validate price range
-    const currencyResult = await pool.query(
-      "SELECT * FROM fiat_currencies WHERE code = $1 AND is_active = true",
-      [fiat_currency_code]
-    );
+    const { data: currencyResult, error: currencyError } = await supabase
+      .from("p2p_price_ranges")
+      .select("min_price, max_price")
+      .eq("code", fiat_currency_code)
+      .eq("is_active", true)
+      .single();
 
-    if (!currencyResult.rows || currencyResult.rows.length === 0) {
-      return res.status(400).json({
-        error: `Invalid or inactive currency: ${fiat_currency_code}`,
-      });
+    if (currencyError) {
+      if (currencyError.code === "PGRST116") {
+        return res.status(400).json({
+          error: `Invalid or inactive currency: ${fiat_currency_code}`,
+        });
+      }
+      throw new Error(currencyError.message);
     }
 
-    const currency = currencyResult.rows[0];
+    const currency = currencyResult;
 
     // Validate price within range
     if (
@@ -171,12 +229,17 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
     }
 
     // Verify all payment methods belong to user
-    const methodsResult = await pool.query(
-      "SELECT id, fiat_currency_code FROM user_payment_methods WHERE user_id = $1 AND is_active = true",
-      [req.user.id]
-    );
+    const { data: methodsResult, error: methodsError } = await supabase
+      .from("user_payment_methods")
+      .select("id, fiat_currency_code")
+      .eq("user_id", req.user.id)
+      .eq("is_active", true);
 
-    const userMethods = methodsResult.rows || [];
+    if (methodsError) {
+      throw new Error(methodsError.message);
+    }
+
+    const userMethods = methodsResult || [];
     const validMethodIds = userMethods.map((m) => m.id);
 
     if (!payment_method_ids.every((id) => validMethodIds.includes(id))) {
@@ -197,36 +260,51 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
 
     // For SELL offers, check user has enough free USDT
     if (side === "sell") {
-      const walletResult = await pool.query(
-        "SELECT usdt_balance, escrow_balance FROM wallets WHERE user_id = $1",
-        [req.user.id]
-      );
+      const { data: walletData, error: walletError } = await supabase
+        .from("wallets")
+        .select("usdt_balance, escrow_balance")
+        .eq("user_id", req.user.id)
+        .single();
 
-      if (walletResult.rows && walletResult.rows.length > 0) {
-        const wallet = walletResult.rows[0];
-        const freeBalance = (wallet.usdt_balance || 0) - (wallet.escrow_balance || 0);
+      if (walletError) {
+        throw new Error(walletError.message);
+      }
 
-        if (freeBalance < total_amount_usdt) {
-          return res.status(400).json({
-            error: `Insufficient free USDT balance. You have ${freeBalance} USDT available but offer requires ${total_amount_usdt} USDT`,
-          });
-        }
+      const wallet = walletData;
+      const freeBalance = (wallet.usdt_balance || 0) - (wallet.escrow_balance || 0);
+
+      if (freeBalance < total_amount_usdt) {
+        return res.status(400).json({
+          error: `Insufficient free USDT balance. You have ${freeBalance} USDT available but offer requires ${total_amount_usdt} USDT`,
+        });
       }
     }
 
     // Create offer
-    const insertResult = await pool.query(
-      `INSERT INTO offers (user_id, side, total_amount_usdt, remaining_amount_usdt, price_fiat_per_usdt, fiat_currency_code, country, min_limit_fiat, max_limit_fiat, payment_method_ids, is_active, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, CURRENT_TIMESTAMP)
-       RETURNING *`,
-      [req.user.id, side, total_amount_usdt, total_amount_usdt, price_fiat_per_usdt, fiat_currency_code, country, min_limit_fiat, max_limit_fiat, JSON.stringify(payment_method_ids)]
-    );
+    const { data: insertData, error: insertError } = await supabase
+      .from("offers")
+      .insert({
+        user_id: req.user.id,
+        side,
+        total_amount_usdt,
+        remaining_amount_usdt: total_amount_usdt,
+        price_fiat_per_usdt,
+        fiat_currency_code,
+        country,
+        min_limit_fiat,
+        max_limit_fiat,
+        payment_method_ids,
+        is_active: true,
+        created_at: new Date().toISOString(),
+      })
+      .select("*")
+      .single();
 
-    if (!insertResult.rows || insertResult.rows.length === 0) {
-      return res.status(400).json({ error: "Failed to create offer" });
+    if (insertError || !insertData) {
+      return res.status(400).json({ error: insertError?.message || "Failed to create offer" });
     }
 
-    res.json({ success: true, offer: insertResult.rows[0] });
+    res.json({ success: true, offer: insertData });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
@@ -254,38 +332,42 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
-
     // Get current offer
-    const currentResult = await pool.query(
-      "SELECT * FROM offers WHERE id = $1 AND user_id = $2",
-      [req.params.id, req.user.id]
-    );
+    const { data: currentOffer, error: currentError } = await supabase
+      .from("offers")
+      .select("*")
+      .eq("id", req.params.id)
+      .eq("user_id", req.user.id)
+      .single();
 
-    if (!currentResult.rows || currentResult.rows.length === 0) {
-      return res.status(404).json({ error: "Offer not found" });
+    if (currentError) {
+      if (currentError.code === "PGRST116") {
+        return res.status(404).json({ error: "Offer not found" });
+      }
+      throw new Error(currentError.message);
     }
 
-    const currentOffer = currentResult.rows[0];
     const updates: any = {};
 
     // Validate and set price if changed
     if (price_fiat_per_usdt !== undefined) {
-      const currencyResult = await pool.query(
-        "SELECT min_price, max_price FROM fiat_currencies WHERE code = $1",
-        [currentOffer.fiat_currency_code]
-      );
+      const { data: currency, error: currencyError } = await supabase
+        .from("p2p_price_ranges")
+        .select("min_price, max_price")
+        .eq("code", currentOffer.fiat_currency_code)
+        .single();
 
-      if (currencyResult.rows && currencyResult.rows.length > 0) {
-        const currency = currencyResult.rows[0];
-        if (
-          price_fiat_per_usdt < currency.min_price ||
-          price_fiat_per_usdt > currency.max_price
-        ) {
-          return res.status(400).json({
-            error: `Price must be between ${currency.min_price} and ${currency.max_price} ${currentOffer.fiat_currency_code}`,
-          });
-        }
+      if (currencyError) {
+        throw new Error(currencyError.message);
+      }
+
+      if (
+        price_fiat_per_usdt < currency.min_price ||
+        price_fiat_per_usdt > currency.max_price
+      ) {
+        return res.status(400).json({
+          error: `Price must be between ${currency.min_price} and ${currency.max_price} ${currentOffer.fiat_currency_code}`,
+        });
       }
 
       updates.price_fiat_per_usdt = price_fiat_per_usdt;
@@ -293,7 +375,7 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
 
     if (min_limit_fiat !== undefined) updates.min_limit_fiat = min_limit_fiat;
     if (max_limit_fiat !== undefined) updates.max_limit_fiat = max_limit_fiat;
-    if (payment_method_ids !== undefined) updates.payment_method_ids = JSON.stringify(payment_method_ids);
+    if (payment_method_ids !== undefined) updates.payment_method_ids = payment_method_ids;
     if (is_active !== undefined) updates.is_active = is_active;
 
     // Validate limits
@@ -305,23 +387,23 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
         .json({ error: "min_limit_fiat must be less than max_limit_fiat" });
     }
 
-    // Build update query
     const updateCols = Object.keys(updates);
     if (updateCols.length === 0) {
       return res.json({ success: true, offer: currentOffer });
     }
 
-    const setClause = updateCols.map((col, idx) => `${col} = $${idx + 1}`).join(", ");
-    const updateResult = await pool.query(
-      `UPDATE offers SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = $${updateCols.length + 1} RETURNING *`,
-      [...Object.values(updates), req.params.id]
-    );
+    const { data: updateData, error: updateError } = await supabase
+      .from("offers")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", req.params.id)
+      .select("*")
+      .single();
 
-    if (!updateResult.rows || updateResult.rows.length === 0) {
-      return res.status(400).json({ error: "Failed to update offer" });
+    if (updateError || !updateData) {
+      return res.status(400).json({ error: updateError?.message || "Failed to update offer" });
     }
 
-    res.json({ success: true, offer: updateResult.rows[0] });
+    res.json({ success: true, offer: updateData });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
@@ -333,26 +415,32 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
 // Delete/cancel offer
 router.delete("/:id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-
     // Check if offer has active trades
-    const tradesResult = await pool.query(
-      "SELECT id FROM trades WHERE offer_id = $1 AND status IN ('pending', 'payment_sent', 'disputed')",
-      [req.params.id]
-    );
+    const { data: trades, error: tradesError } = await supabase
+      .from("trades")
+      .select("id")
+      .eq("offer_id", req.params.id)
+      .in("status", ["pending", "payment_sent", "disputed"]);
 
-    if (tradesResult.rows && tradesResult.rows.length > 0) {
+    if (tradesError) {
+      throw new Error(tradesError.message);
+    }
+
+    if (trades && trades.length > 0) {
       return res.status(400).json({
         error: "Cannot delete offer with active trades",
       });
     }
 
-    const deleteResult = await pool.query(
-      "UPDATE offers SET is_active = false WHERE id = $1 AND user_id = $2 RETURNING *",
-      [req.params.id, req.user.id]
-    );
+    const { data: deleteData, error: deleteError } = await supabase
+      .from("offers")
+      .update({ is_active: false })
+      .eq("id", req.params.id)
+      .eq("user_id", req.user.id)
+      .select("*")
+      .single();
 
-    if (!deleteResult.rows || deleteResult.rows.length === 0) {
+    if (deleteError || !deleteData) {
       return res.status(404).json({ error: "Offer not found" });
     }
 

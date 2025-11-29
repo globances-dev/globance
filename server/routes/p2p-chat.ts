@@ -24,32 +24,59 @@ const authMiddleware = async (req: any, res: Response, next: Function) => {
 // Get chat messages for a trade
 router.get("/:trade_id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-
     // Verify user is participant in trade
-    const tradeResult = await pool.query(
-      "SELECT buyer_id, seller_id FROM trades WHERE id = $1",
-      [req.params.trade_id]
-    );
+    const { data: tradeData, error: tradeError } = await supabase
+      .from("trades")
+      .select("buyer_id, seller_id")
+      .eq("id", req.params.trade_id)
+      .single();
 
-    if (!tradeResult.rows || tradeResult.rows.length === 0) {
-      return res.status(404).json({ error: "Trade not found" });
+    if (tradeError) {
+      if (tradeError.code === "PGRST116") {
+        return res.status(404).json({ error: "Trade not found" });
+      }
+      throw new Error(tradeError.message);
     }
 
-    const trade = tradeResult.rows[0];
-    if (trade.buyer_id !== req.user.id && trade.seller_id !== req.user.id) {
+    if (tradeData.buyer_id !== req.user.id && tradeData.seller_id !== req.user.id) {
       return res.status(403).json({ error: "Access denied" });
     }
 
-    const messagesResult = await pool.query(
-      `SELECT m.*, u.id as sender_id, u.email, u.username FROM p2p_chat_messages m
-       LEFT JOIN users u ON m.sender_id = u.id
-       WHERE m.trade_id = $1
-       ORDER BY m.created_at ASC`,
-      [req.params.trade_id]
-    );
+    const { data: messages, error: messagesError } = await supabase
+      .from("p2p_chat")
+      .select("*, sender_id")
+      .eq("trade_id", req.params.trade_id)
+      .order("created_at", { ascending: true });
 
-    res.json({ messages: messagesResult.rows || [] });
+    if (messagesError) {
+      throw new Error(messagesError.message);
+    }
+
+    const senderIds = Array.from(new Set((messages || []).map((m) => m.sender_id)));
+    let senderMap: Record<string, any> = {};
+    if (senderIds.length > 0) {
+      const { data: users, error: userError } = await supabase
+        .from("users")
+        .select("id, email, username")
+        .in("id", senderIds);
+
+      if (userError) {
+        throw new Error(userError.message);
+      }
+
+      senderMap = (users || []).reduce((acc, user) => {
+        acc[user.id] = user;
+        return acc;
+      }, {} as Record<string, any>);
+    }
+
+    const messagesWithSenders = (messages || []).map((msg) => ({
+      ...msg,
+      email: senderMap[msg.sender_id]?.email,
+      username: senderMap[msg.sender_id]?.username,
+    }));
+
+    res.json({ messages: messagesWithSenders });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -68,38 +95,41 @@ router.post("/:trade_id", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
-
     // Verify user is participant
-    const tradeResult = await pool.query(
-      "SELECT buyer_id, seller_id FROM trades WHERE id = $1",
-      [req.params.trade_id]
-    );
+    const { data: tradeData, error: tradeError } = await supabase
+      .from("trades")
+      .select("buyer_id, seller_id")
+      .eq("id", req.params.trade_id)
+      .single();
 
-    if (!tradeResult.rows || tradeResult.rows.length === 0) {
-      return res.status(404).json({ error: "Trade not found" });
+    if (tradeError) {
+      if (tradeError.code === "PGRST116") {
+        return res.status(404).json({ error: "Trade not found" });
+      }
+      throw new Error(tradeError.message);
     }
 
-    const trade = tradeResult.rows[0];
-    if (trade.buyer_id !== req.user.id && trade.seller_id !== req.user.id) {
+    if (tradeData.buyer_id !== req.user.id && tradeData.seller_id !== req.user.id) {
       return res.status(403).json({ error: "Access denied" });
     }
 
-    // Insert message
-    const insertResult = await pool.query(
-      `INSERT INTO p2p_chat_messages (trade_id, sender_id, message, attachment_url, created_at)
-       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-       RETURNING *`,
-      [req.params.trade_id, req.user.id, message || null, attachment_url || null]
-    );
+    const { data: insertData, error: insertError } = await supabase
+      .from("p2p_chat")
+      .insert({
+        trade_id: req.params.trade_id,
+        sender_id: req.user.id,
+        message: message || null,
+        attachment_url: attachment_url || null,
+        created_at: new Date().toISOString(),
+      })
+      .select("*")
+      .single();
 
-    if (!insertResult.rows || insertResult.rows.length === 0) {
-      return res.status(400).json({ error: "Failed to send message" });
+    if (insertError || !insertData) {
+      return res.status(400).json({ error: insertError?.message || "Failed to send message" });
     }
 
-    const chatMessage = insertResult.rows[0];
-
-    res.json({ success: true, message: chatMessage });
+    res.json({ success: true, message: insertData });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });

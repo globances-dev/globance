@@ -17,13 +17,17 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT role FROM users WHERE id = $1",
-      [decoded.id]
-    );
+    const { data, error } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", decoded.id)
+      .single();
 
-    if (!result.rows.length || result.rows[0].role !== "admin") {
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!data || data.role !== "admin") {
       return res.status(403).json({ error: "Admin access required" });
     }
 
@@ -38,44 +42,36 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 // Get marketplace-wide P2P statistics (admin only)
 router.get("/", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const [{ data: offers, error: offersError }, { data: trades, error: tradesError }] = await Promise.all([
+      supabase.from("offers").select("id, is_active"),
+      supabase.from("trades").select("id, status, amount_usdt, buyer_id, seller_id, created_at"),
+    ]);
 
-    // Get active offers count
-    const offersResult = await pool.query(
-      "SELECT COUNT(*) as count FROM p2p_offers WHERE is_active = true"
-    );
-    const activeOffers = parseInt(offersResult.rows[0]?.count) || 0;
+    if (offersError) {
+      throw new Error(offersError.message);
+    }
 
-    // Get all trades
-    const tradesResult = await pool.query(
-      "SELECT id, status, amount_usdt, buyer_id, seller_id, created_at FROM p2p_trades ORDER BY created_at DESC"
-    );
-    const allTrades = tradesResult.rows || [];
+    if (tradesError) {
+      throw new Error(tradesError.message);
+    }
 
-    // Get disputed trades count
-    const disputesResult = await pool.query(
-      "SELECT COUNT(*) as count FROM p2p_trades WHERE status = 'disputed'"
-    );
-    const openDisputes = parseInt(disputesResult.rows[0]?.count) || 0;
+    const activeOffers = (offers || []).filter((o) => o.is_active).length;
+    const allTrades = trades || [];
 
-    // Calculate time-based stats
+    const openDisputes = allTrades.filter((t: any) => t.status === "disputed").length;
+
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const todayTrades = allTrades.filter(
-      (t: any) => new Date(t.created_at) >= today
-    ).length;
+    const todayTrades = allTrades.filter((t: any) => new Date(t.created_at) >= today).length;
 
-    const weekTrades = allTrades.filter(
-      (t: any) => new Date(t.created_at) >= weekAgo
-    ).length;
+    const weekTrades = allTrades.filter((t: any) => new Date(t.created_at) >= weekAgo).length;
 
     const weekVolume = allTrades
       .filter((t: any) => new Date(t.created_at) >= weekAgo)
       .reduce((sum: number, t: any) => sum + parseFloat(t.amount_usdt || 0), 0);
 
-    // Get unique users from trades
     const uniqueUsers = new Set();
     allTrades.forEach((t: any) => {
       uniqueUsers.add(t.buyer_id);
@@ -100,16 +96,40 @@ router.get("/", adminMiddleware, async (req: any, res: Response) => {
 // Get all offers (admin only)
 router.get("/offers", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    
-    const result = await pool.query(`
-      SELECT o.*, u.email, u.referral_code as ref_code
-      FROM p2p_offers o
-      JOIN users u ON o.user_id = u.id
-      ORDER BY o.created_at DESC
-    `);
+    const { data: offers, error: offersError } = await supabase
+      .from("offers")
+      .select("*, user_id")
+      .order("created_at", { ascending: false });
 
-    res.json({ offers: result.rows || [] });
+    if (offersError) {
+      throw new Error(offersError.message);
+    }
+
+    const userIds = Array.from(new Set((offers || []).map((o) => o.user_id)));
+    let userMap: Record<string, any> = {};
+    if (userIds.length > 0) {
+      const { data: users, error: usersError } = await supabase
+        .from("users")
+        .select("id, email, referral_code")
+        .in("id", userIds);
+
+      if (usersError) {
+        throw new Error(usersError.message);
+      }
+
+      userMap = (users || []).reduce((acc, user) => {
+        acc[user.id] = user;
+        return acc;
+      }, {} as Record<string, any>);
+    }
+
+    const offersWithUsers = (offers || []).map((offer) => ({
+      ...offer,
+      email: userMap[offer.user_id]?.email,
+      ref_code: userMap[offer.user_id]?.referral_code,
+    }));
+
+    res.json({ offers: offersWithUsers });
   } catch (error: any) {
     console.error("[P2P Admin Stats] Get offers error:", error);
     res.status(400).json({ error: error.message });
@@ -120,29 +140,60 @@ router.get("/offers", adminMiddleware, async (req: any, res: Response) => {
 router.get("/trades", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { status } = req.query;
-    const pool = getPostgresPool();
 
-    let query = `
-      SELECT t.*, 
-             o.side as offer_type, o.price_fiat_per_usdt as offer_price,
-             b.email as buyer_email, b.username as buyer_name,
-             s.email as seller_email, s.username as seller_name
-      FROM p2p_trades t
-      JOIN p2p_offers o ON t.offer_id = o.id
-      JOIN users b ON t.buyer_id = b.id
-      JOIN users s ON t.seller_id = s.id
-    `;
-    const params: any[] = [];
+    let tradesQuery = supabase
+      .from("trades")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (status) {
-      query += " WHERE t.status = $1";
-      params.push(status);
+      tradesQuery = tradesQuery.eq("status", status as string);
     }
 
-    query += " ORDER BY t.created_at DESC";
+    const { data: trades, error } = await tradesQuery;
+    if (error) {
+      throw new Error(error.message);
+    }
 
-    const result = await pool.query(query, params);
-    res.json({ trades: result.rows || [] });
+    const offerIds = Array.from(new Set((trades || []).map((t) => t.offer_id)));
+    const userIds = Array.from(
+      new Set((trades || []).flatMap((t) => [t.buyer_id, t.seller_id]))
+    );
+
+    const [{ data: offers, error: offersError }, { data: users, error: usersError }] = await Promise.all([
+      supabase.from("offers").select("id, side, price_fiat_per_usdt").in("id", offerIds),
+      supabase.from("users").select("id, email, username").in("id", userIds),
+    ]);
+
+    if (offersError) {
+      throw new Error(offersError.message);
+    }
+
+    if (usersError) {
+      throw new Error(usersError.message);
+    }
+
+    const offerMap = (offers || []).reduce((acc, offer) => {
+      acc[offer.id] = offer;
+      return acc;
+    }, {} as Record<string, any>);
+
+    const userMap = (users || []).reduce((acc, user) => {
+      acc[user.id] = user;
+      return acc;
+    }, {} as Record<string, any>);
+
+    const tradesWithDetails = (trades || []).map((trade) => ({
+      ...trade,
+      offer_type: offerMap[trade.offer_id]?.side,
+      offer_price: offerMap[trade.offer_id]?.price_fiat_per_usdt,
+      buyer_email: userMap[trade.buyer_id]?.email,
+      buyer_name: userMap[trade.buyer_id]?.username,
+      seller_email: userMap[trade.seller_id]?.email,
+      seller_name: userMap[trade.seller_id]?.username,
+    }));
+
+    res.json({ trades: tradesWithDetails });
   } catch (error: any) {
     console.error("[P2P Admin Stats] Get trades error:", error);
     res.status(400).json({ error: error.message });
