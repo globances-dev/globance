@@ -14,7 +14,7 @@ const router = Router();
 router.post("/process-daily-earnings", async (req: Request, res: Response) => {
   try {
     console.log(
-      `[API] Manual trigger of daily earnings processing at ${new Date().toISOString()}`
+      `[API] Manual trigger of daily earnings processing at ${new Date().toISOString()}`,
     );
 
     const now = new Date();
@@ -24,7 +24,7 @@ router.post("/process-daily-earnings", async (req: Request, res: Response) => {
     // Check if already processed today (idempotency check)
     const cronLogResult = await pool.query(
       "SELECT * FROM cron_logs WHERE DATE(process_date) = $1 AND process_type = 'daily_earnings'",
-      [todayDate]
+      [todayDate],
     );
 
     if (cronLogResult.rows && cronLogResult.rows.length > 0) {
@@ -38,7 +38,7 @@ router.post("/process-daily-earnings", async (req: Request, res: Response) => {
 
     // Get latest cron log for this date
     const latestCronLogResult = await pool.query(
-      "SELECT * FROM cron_logs WHERE process_type = 'daily_earnings' ORDER BY process_date DESC LIMIT 1"
+      "SELECT * FROM cron_logs WHERE process_type = 'daily_earnings' ORDER BY process_date DESC LIMIT 1",
     );
 
     const cronLog = latestCronLogResult.rows?.[0];
@@ -48,7 +48,8 @@ router.post("/process-daily-earnings", async (req: Request, res: Response) => {
       processed: cronLog?.purchases_processed || 0,
       totalDistributed: cronLog?.total_distributed || 0,
       failedCount: cronLog?.failed_count || 0,
-      message: "Mining earnings processed successfully (external cron via Netlify)",
+      message:
+        "Mining earnings processed successfully (external cron via Netlify)",
     });
   } catch (error: any) {
     console.error("[API] Error in manual trigger:", error);
@@ -68,7 +69,7 @@ router.post("/run-daily-earnings-test", async (req: Request, res: Response) => {
 
     // Get all active purchases
     const purchasesResult = await pool.query(
-      "SELECT p.*, pkg.daily_percentage FROM purchases p LEFT JOIN packages pkg ON p.package_id = pkg.id WHERE p.status = 'active'"
+      "SELECT p.*, pkg.daily_percentage FROM purchases p LEFT JOIN packages pkg ON p.package_id = pkg.id WHERE p.status = 'active'",
     );
 
     const purchases = purchasesResult.rows || [];
@@ -88,12 +89,13 @@ router.post("/run-daily-earnings-test", async (req: Request, res: Response) => {
 
     for (const purchase of purchases) {
       try {
-        const dailyEarning = (purchase.amount * (purchase.daily_percentage || 0)) / 100;
+        const dailyEarning =
+          (purchase.amount * (purchase.daily_percentage || 0)) / 100;
 
         // Credit to user wallet
         await pool.query(
           "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-          [dailyEarning, purchase.user_id]
+          [dailyEarning, purchase.user_id],
         );
 
         totalDistributed += dailyEarning;
@@ -103,7 +105,7 @@ router.post("/run-daily-earnings-test", async (req: Request, res: Response) => {
           await pool.query(
             `INSERT INTO earnings_transactions (user_id, package_id, amount, type, created_at)
              VALUES ($1, $2, $3, 'daily_mining_income', CURRENT_TIMESTAMP)`,
-            [purchase.user_id, purchase.package_id, dailyEarning]
+            [purchase.user_id, purchase.package_id, dailyEarning],
           );
         } catch (txError) {
           console.error(`[MINING] Failed to record transaction:`, txError);
@@ -116,7 +118,7 @@ router.post("/run-daily-earnings-test", async (req: Request, res: Response) => {
           const level1Commission = (dailyEarning * 10) / 100;
           await pool.query(
             "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-            [level1Commission, upline.level1]
+            [level1Commission, upline.level1],
           );
 
           await recordReferralBonus(
@@ -135,7 +137,7 @@ router.post("/run-daily-earnings-test", async (req: Request, res: Response) => {
           const level2Commission = (dailyEarning * 3) / 100;
           await pool.query(
             "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-            [level2Commission, upline.level2]
+            [level2Commission, upline.level2],
           );
 
           await recordReferralBonus(
@@ -154,7 +156,7 @@ router.post("/run-daily-earnings-test", async (req: Request, res: Response) => {
           const level3Commission = (dailyEarning * 2) / 100;
           await pool.query(
             "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-            [level3Commission, upline.level3]
+            [level3Commission, upline.level3],
           );
 
           await recordReferralBonus(
@@ -171,7 +173,10 @@ router.post("/run-daily-earnings-test", async (req: Request, res: Response) => {
 
         processed++;
       } catch (error) {
-        console.error(`[TEST] Error processing purchase ${purchase.id}:`, error);
+        console.error(
+          `[TEST] Error processing purchase ${purchase.id}:`,
+          error,
+        );
         failedPurchases.push(purchase.id);
       }
     }
@@ -223,7 +228,7 @@ router.get("/my-packages", async (req: any, res: Response) => {
        LEFT JOIN packages pkg ON p.package_id = pkg.id
        WHERE p.user_id = $1 AND p.status = 'active'
        ORDER BY p.created_at DESC`,
-      [userId]
+      [userId],
     );
 
     const purchases = result.rows || [];
@@ -240,11 +245,14 @@ router.get("/my-packages", async (req: any, res: Response) => {
       const durationDays = p.duration_days || 270; // Default 270 days
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + durationDays);
-      
+
       const today = new Date();
       const timeDiff = endDate.getTime() - today.getTime();
-      const daysRemaining = Math.max(0, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
-      
+      const daysRemaining = Math.max(
+        0,
+        Math.ceil(timeDiff / (1000 * 60 * 60 * 24)),
+      );
+
       return {
         id: p.id,
         package_id: p.package_id,
@@ -280,7 +288,7 @@ router.get("/daily-earnings/:userId", async (req: Request, res: Response) => {
     const result = await pool.query(
       `SELECT SUM(amount) as total_earned FROM earnings_transactions 
        WHERE user_id = $1 AND DATE(created_at) = $2`,
-      [userId, todayDate]
+      [userId, todayDate],
     );
 
     const totalEarned = result.rows?.[0]?.total_earned || 0;
