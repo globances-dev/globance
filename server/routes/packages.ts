@@ -167,6 +167,19 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
       Date.now() + pkgConfig.duration_days * 86400000,
     ).toISOString();
 
+    // Determine referral_id (fallback to the buyer if no sponsor)
+    const referralResult = await pool.query(
+      "SELECT referred_by FROM users WHERE id = $1",
+      [req.user.id]
+    );
+    const referralId = referralResult.rows?.[0]?.referred_by || req.user.id;
+
+    // Check if purchases table has referral_id column to avoid errors across schemas
+    const referralColumnResult = await pool.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_name = 'purchases' AND column_name = 'referral_id'"
+    );
+    const hasReferralColumn = referralColumnResult.rows?.length > 0;
+
     console.log(`[BUY_PACKAGE] Attempting insert with data:`, {
       user_id: req.user.id,
       package_id: dbPackageId,
@@ -174,6 +187,7 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
       start_time: now,
       end_time: endTime,
       status: "active",
+      referral_id: hasReferralColumn ? referralId : undefined,
     });
 
     console.log(`[BUY_PACKAGE] Database package ID: ${dbPackageId} (from configId: ${configId})`);
@@ -190,12 +204,19 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
     // Insert purchase (use numeric package_id for database)
     let purchaseId: string = "";
     try {
-      console.log("Mapped:", { package_id, configId, dbPackageId });
+      console.log("Mapped:", { package_id, configId, dbPackageId, referralId });
+
       const insertResult = await pool.query(
-        `INSERT INTO purchases (user_id, package_id, amount, status, created_at)
-         VALUES ($1, $2, $3, 'active', CURRENT_TIMESTAMP)
-         RETURNING id`,
-      [req.user.id, dbPackageId, investmentAmount]
+        hasReferralColumn
+          ? `INSERT INTO purchases (user_id, package_id, amount, status, referral_id, created_at)
+             VALUES ($1, $2, $3, 'active', $4, CURRENT_TIMESTAMP)
+             RETURNING id`
+          : `INSERT INTO purchases (user_id, package_id, amount, status, created_at)
+             VALUES ($1, $2, $3, 'active', CURRENT_TIMESTAMP)
+             RETURNING id`,
+        hasReferralColumn
+          ? [req.user.id, dbPackageId, investmentAmount, referralId]
+          : [req.user.id, dbPackageId, investmentAmount]
       );
 
       if (!insertResult.rows || insertResult.rows.length === 0) {
