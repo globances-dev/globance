@@ -383,24 +383,52 @@ router.post(
 router.get("/deposits", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { status } = req.query;
-    const pool = getPostgresPool();
-
-    let query = `
-      SELECT d.*, u.email, u.username, u.full_name
-      FROM deposits d
-      JOIN users u ON d.user_id = u.id
-    `;
-    const params: any[] = [];
+    let query = supabase
+      .from("deposits")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (status) {
-      query += " WHERE d.status = $1";
-      params.push(status);
+      query = query.eq("status", status as string);
     }
 
-    query += " ORDER BY d.created_at DESC";
+    const { data: deposits, error } = await query;
+    if (error) {
+      throw error;
+    }
 
-    const result = await pool.query(query, params);
-    res.json({ deposits: result.rows || [] });
+    const userIds = Array.from(
+      new Set((deposits || []).map((d: any) => d.user_id).filter(Boolean))
+    );
+
+    let usersById: Record<string, any> = {};
+    if (userIds.length > 0) {
+      const { data: users, error: usersError } = await supabase
+        .from("users")
+        .select("id, email, username, full_name")
+        .in("id", userIds);
+
+      if (usersError) {
+        throw usersError;
+      }
+
+      usersById = (users || []).reduce((acc: Record<string, any>, user: any) => {
+        acc[user.id] = user;
+        return acc;
+      }, {});
+    }
+
+    const depositsWithUsers = (deposits || []).map((deposit: any) => {
+      const user = usersById[deposit.user_id] || {};
+      return {
+        ...deposit,
+        email: user.email,
+        username: user.username,
+        full_name: user.full_name,
+      };
+    });
+
+    res.json({ deposits: depositsWithUsers });
   } catch (error: any) {
     console.error("[Admin] Get deposits error:", error);
     res.status(400).json({ error: error.message });
@@ -616,9 +644,15 @@ router.get("/users/:user_id", adminMiddleware, async (req: any, res: Response) =
     `, [req.params.user_id]);
 
     // Get user's deposits
-    const depositsResult = await pool.query(`
-      SELECT * FROM deposits WHERE user_id = $1 ORDER BY created_at DESC
-    `, [req.params.user_id]);
+    const { data: deposits, error: depositsError } = await supabase
+      .from("deposits")
+      .select("*")
+      .eq("user_id", req.params.user_id)
+      .order("created_at", { ascending: false });
+
+    if (depositsError) {
+      throw depositsError;
+    }
 
     // Get user's withdrawals
     const withdrawalsResult = await pool.query(`
@@ -631,7 +665,7 @@ router.get("/users/:user_id", adminMiddleware, async (req: any, res: Response) =
     res.json({
       user,
       purchases: purchasesResult.rows || [],
-      deposits: depositsResult.rows || [],
+      deposits: deposits || [],
       withdrawals: withdrawalsResult.rows || [],
       referralCount
     });

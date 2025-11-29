@@ -32,7 +32,7 @@ router.post('/nowpayments', async (req: Request, res: Response) => {
 
     // Parse payload first for signature verification
     const payload: NOWPaymentsWebhookPayload = JSON.parse(rawBody);
-    
+
     // Verify signature
     if (!verifyIPNSignature(payload, signature)) {
       console.warn('[NOWPayments] Invalid webhook signature');
@@ -50,36 +50,44 @@ router.post('/nowpayments', async (req: Request, res: Response) => {
       return res.json({ success: true });
     }
 
-    const pool = getPostgresPool();
-
     // Find deposit address
-    const addressResult = await pool.query(
-      "SELECT id, user_id, network, provider, provider_wallet_id FROM deposit_addresses WHERE address = $1",
-      [payload.pay_address]
-    );
+    const { data: addressRecord, error: addressError } = await supabase
+      .from('deposit_addresses')
+      .select('id, user_id, network, provider, provider_wallet_id')
+      .eq('address', payload.pay_address)
+      .single();
 
-    if (!addressResult.rows || addressResult.rows.length === 0) {
-      console.warn(`No user found for address ${payload.pay_address}`);
-      return res.json({ success: true });
+    if (addressError) {
+      if (addressError.code === 'PGRST116') {
+        console.warn(`No user found for address ${payload.pay_address}`);
+        return res.json({ success: true });
+      }
+      throw addressError;
     }
 
-    const addressRecord = addressResult.rows[0];
-
     // Get user email
-    const userResult = await pool.query(
-      "SELECT email FROM users WHERE id = $1",
-      [addressRecord.user_id]
-    );
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('email')
+      .eq('id', addressRecord.user_id)
+      .single();
 
-    const user = userResult.rows?.[0];
+    if (userError && userError.code !== 'PGRST116') {
+      throw userError;
+    }
 
     // Check for duplicate deposit (idempotency)
-    const existingResult = await pool.query(
-      "SELECT id FROM deposits WHERE provider_payment_id = $1",
-      [payload.payment_id.toString()]
-    );
+    const { data: existingDeposit, error: existingError } = await supabase
+      .from('deposits')
+      .select('id')
+      .eq('provider_payment_id', payload.payment_id.toString())
+      .maybeSingle();
 
-    if (existingResult.rows && existingResult.rows.length > 0) {
+    if (existingError) {
+      throw existingError;
+    }
+
+    if (existingDeposit) {
       console.log(`Duplicate deposit event ${payload.payment_id}, ignoring`);
       return res.json({ success: true });
     }
@@ -90,53 +98,68 @@ router.post('/nowpayments', async (req: Request, res: Response) => {
     const MIN_DEPOSIT = getMinimumUSDT();
     if (amount < MIN_DEPOSIT) {
       console.log(`[NOWPayments] Deposit ${amount} below minimum ${MIN_DEPOSIT}, not crediting user`);
-      
+
       // Persist sub-minimum deposit for audit trail
-      await pool.query(
-        `INSERT INTO deposits (user_id, address_id, network, amount, txid, provider, provider_payment_id, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'failed', CURRENT_TIMESTAMP)`,
-        [addressRecord.user_id, addressRecord.id, addressRecord.network, amount, (payload as any).payin_hash || payload.payment_id.toString(), 'nowpayments', payload.payment_id.toString()]
-      );
-      
+      await supabase.from('deposits').insert({
+        user_id: addressRecord.user_id,
+        address_id: addressRecord.id,
+        network: addressRecord.network,
+        amount,
+        txid: (payload as any).payin_hash || payload.payment_id.toString(),
+        provider: 'nowpayments',
+        provider_payment_id: payload.payment_id.toString(),
+        status: 'failed',
+        created_at: new Date().toISOString(),
+      });
+
       return res.json({ success: true, message: `Deposit below minimum ${MIN_DEPOSIT} USDT` });
     }
 
     // Create deposit record
-    let deposit: any;
-    try {
-      const depositResult = await pool.query(
-        `INSERT INTO deposits (user_id, address_id, network, amount, txid, provider, provider_payment_id, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'completed', CURRENT_TIMESTAMP)
-         RETURNING *`,
-        [addressRecord.user_id, addressRecord.id, addressRecord.network, amount, (payload as any).payin_hash || payload.payment_id.toString(), 'nowpayments', payload.payment_id.toString()]
-      );
+    const { data: deposit, error: depositError } = await supabase
+      .from('deposits')
+      .insert({
+        user_id: addressRecord.user_id,
+        address_id: addressRecord.id,
+        network: addressRecord.network,
+        amount,
+        txid: (payload as any).payin_hash || payload.payment_id.toString(),
+        provider: 'nowpayments',
+        provider_payment_id: payload.payment_id.toString(),
+        status: 'completed',
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
-      if (!depositResult.rows || depositResult.rows.length === 0) {
-        throw new Error('Failed to create deposit');
-      }
-
-      deposit = depositResult.rows[0];
-    } catch (error: any) {
-      // Handle unique constraint violation (duplicate payment ID)
-      if (error.code === '23505') {
-        console.log(`Duplicate deposit detected (unique constraint): ${payload.payment_id}`);
-        return res.json({ success: true, message: 'Deposit already processed' });
-      }
-      console.error('Error creating deposit:', error);
-      return res.status(500).json({ error: 'Failed to create deposit' });
+    if (depositError || !deposit) {
+      throw depositError || new Error('Failed to create deposit');
     }
 
     // Credit wallet
-    const walletResult = await pool.query(
-      "SELECT usdt_balance FROM wallets WHERE user_id = $1",
-      [addressRecord.user_id]
-    );
+    const { data: wallet, error: walletError } = await supabase
+      .from('wallets')
+      .select('usdt_balance')
+      .eq('user_id', addressRecord.user_id)
+      .maybeSingle();
 
-    if (walletResult.rows && walletResult.rows.length > 0) {
-      await pool.query(
-        "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
-        [amount, addressRecord.user_id]
-      );
+    if (walletError) {
+      throw walletError;
+    }
+
+    if (wallet) {
+      const newBalance = (wallet.usdt_balance || 0) + amount;
+      const { error: updateError } = await supabase
+        .from('wallets')
+        .update({
+          usdt_balance: newBalance,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', addressRecord.user_id);
+
+      if (updateError) {
+        throw updateError;
+      }
     } else {
       console.error(`Wallet not found for user ${addressRecord.user_id}`);
       return res.status(500).json({ error: 'Wallet not found' });
@@ -148,18 +171,20 @@ router.post('/nowpayments', async (req: Request, res: Response) => {
     }
 
     // Log to audit
-    try {
-      await pool.query(
-        `INSERT INTO audit_logs (action, resource_type, resource_id, details, created_at)
-         VALUES ('deposit_confirmed', 'deposit', $1, $2, CURRENT_TIMESTAMP)`,
-        [deposit.id, JSON.stringify({
-          amount,
-          network: addressRecord.network,
-          provider_payment_id: payload.payment_id,
-          user_id: addressRecord.user_id
-        })]
-      );
-    } catch (auditError) {
+    const { error: auditError } = await supabase.from('audit_logs').insert({
+      action: 'deposit_confirmed',
+      resource_type: 'deposit',
+      resource_id: deposit.id,
+      details: {
+        amount,
+        network: addressRecord.network,
+        provider_payment_id: payload.payment_id,
+        user_id: addressRecord.user_id,
+      },
+      created_at: new Date().toISOString(),
+    });
+
+    if (auditError) {
       console.warn('[NOWPayments] Failed to log to audit:', auditError);
     }
 
