@@ -248,27 +248,28 @@ router.get("/me", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid token" });
     }
 
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT id, email, username, verified, created_at, referral_code FROM users WHERE id = $1",
-      [decoded.id]
-    );
+    const supabase = getSupabaseAdmin();
+    const { data: users, error } = await supabase
+      .from("users")
+      .select("id, email, full_name, is_verified, created_at, ref_code, current_rank")
+      .eq("id", decoded.id)
+      .limit(1);
 
-    if (!result.rows || result.rows.length === 0) {
+    if (error || !users || users.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const user = result.rows[0];
+    const user = users[0];
 
     // Auto-generate referral code if missing
-    let referralCode = user.referral_code;
+    let referralCode = user.ref_code;
     if (!referralCode) {
       referralCode = generateReferralCode();
       try {
-        await pool.query(
-          "UPDATE users SET referral_code = $1 WHERE id = $2",
-          [referralCode, user.id]
-        );
+        await supabase
+          .from("users")
+          .update({ ref_code: referralCode })
+          .eq("id", user.id);
       } catch (err) {
         console.warn("Failed to auto-generate referral code:", err);
       }
@@ -278,8 +279,8 @@ router.get("/me", async (req: Request, res: Response) => {
       user: {
         id: user.id,
         email: user.email,
-        full_name: user.username,
-        current_rank: "Bronze",
+        full_name: user.full_name,
+        current_rank: user.current_rank || "Bronze",
         created_at: user.created_at,
         ref_code: referralCode,
       },
