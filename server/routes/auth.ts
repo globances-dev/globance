@@ -190,17 +190,18 @@ router.post("/login", async (req: Request, res: Response) => {
   try {
     const data = LoginSchema.parse(req.body);
 
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT * FROM users WHERE email = $1",
-      [data.email]
-    );
+    const supabase = getSupabaseAdmin();
+    const { data: users, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", data.email)
+      .limit(1);
 
-    if (!result.rows || result.rows.length === 0) {
+    if (error || !users || users.length === 0) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    const user = result.rows[0];
+    const user = users[0];
 
     // Compare password
     const validPassword = await comparePassword(
@@ -224,9 +225,9 @@ router.post("/login", async (req: Request, res: Response) => {
       user: {
         id: user.id,
         email: user.email,
-        full_name: user.username,
+        full_name: user.full_name,
         current_rank: user.current_rank || "Bronze",
-        ref_code: user.referral_code,
+        ref_code: user.ref_code,
       },
     });
   } catch (error: any) {
