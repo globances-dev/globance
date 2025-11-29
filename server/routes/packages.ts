@@ -108,12 +108,17 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
 
     // Convert database numeric ID to config string ID if needed
     const configId = DB_TO_CONFIG_ID[package_id] || package_id;
-    
+
     // Find package config
     const pkgConfig = PACKAGES_CONFIG.find((p) => p.id === configId);
     if (!pkgConfig) {
       console.log(`[BUY_PACKAGE] Package config not found: ${package_id} (mapped to ${configId})`);
       return res.status(404).json({ error: "Package not found" });
+    }
+
+    const dbPackageId = CONFIG_TO_DB_ID[configId];
+    if (!dbPackageId) {
+      throw new Error(`Invalid package_id: ${package_id} (mapped: ${configId})`);
     }
 
     // Use provided amount or minimum
@@ -130,11 +135,11 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
 
     // Check referral requirements for non-Bronze packages
     if (pkgConfig.referral_required > 0) {
-      const eligibility = await checkPackageEligibility(req.user.id, String(CONFIG_TO_DB_ID[configId] || package_id));
+      const eligibility = await checkPackageEligibility(req.user.id, String(dbPackageId));
       if (!eligibility.eligible) {
         console.log(`[BUY_PACKAGE] Eligibility check failed: ${eligibility.reason}`);
-        return res.status(400).json({ 
-          error: eligibility.reason || `You need ${pkgConfig.referral_required} active referrals to buy this package` 
+        return res.status(400).json({
+          error: eligibility.reason || `You need ${pkgConfig.referral_required} active referrals to buy this package`
         });
       }
     }
@@ -164,25 +169,33 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
 
     console.log(`[BUY_PACKAGE] Attempting insert with data:`, {
       user_id: req.user.id,
-      package_id: parseInt(package_id),
+      package_id: dbPackageId,
       amount: investmentAmount,
       start_time: now,
       end_time: endTime,
       status: "active",
     });
 
-    // Get the numeric database ID for the package
-    const dbPackageId = CONFIG_TO_DB_ID[configId] || parseInt(package_id) || 1;
     console.log(`[BUY_PACKAGE] Database package ID: ${dbPackageId} (from configId: ${configId})`);
+
+    const packageExistsResult = await pool.query(
+      "SELECT id FROM packages WHERE id = $1",
+      [dbPackageId]
+    );
+
+    if (!packageExistsResult.rows || packageExistsResult.rows.length === 0) {
+      return res.status(404).json({ error: "Package not found" });
+    }
 
     // Insert purchase (use numeric package_id for database)
     let purchaseId: string = "";
     try {
+      console.log("Mapped:", { package_id, configId, dbPackageId });
       const insertResult = await pool.query(
         `INSERT INTO purchases (user_id, package_id, amount, status, created_at)
          VALUES ($1, $2, $3, 'active', CURRENT_TIMESTAMP)
          RETURNING id`,
-        [req.user.id, dbPackageId, investmentAmount]
+      [req.user.id, dbPackageId, investmentAmount]
       );
 
       if (!insertResult.rows || insertResult.rows.length === 0) {
