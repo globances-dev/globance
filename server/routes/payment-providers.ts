@@ -18,13 +18,13 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT role FROM users WHERE id = $1",
-      [decoded.id]
-    );
+    const { data, error } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", decoded.id)
+      .single();
 
-    if (!result.rows.length || result.rows[0].role !== "admin") {
+    if (error || !data || data.role !== "admin") {
       return res.status(403).json({ error: "Admin access required" });
     }
 
@@ -40,25 +40,27 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 router.get("/", async (req: Request, res: Response) => {
   try {
     const { fiat_currency_code, type } = req.query;
-    const pool = getPostgresPool();
-
-    let query = "SELECT * FROM approved_payment_providers WHERE is_active = true";
-    const params: any[] = [];
+    let query = supabase
+      .from("approved_payment_providers")
+      .select("*")
+      .eq("is_active", true)
+      .order("type")
+      .order("name");
 
     if (fiat_currency_code) {
-      params.push(fiat_currency_code.toString().toUpperCase());
-      query += ` AND fiat_currency = $${params.length}`;
+      query = query.eq("fiat_currency", fiat_currency_code.toString().toUpperCase());
     }
 
     if (type) {
-      params.push(type);
-      query += ` AND type = $${params.length}`;
+      query = query.eq("type", type as string);
     }
 
-    query += " ORDER BY type, name";
+    const { data, error } = await query;
+    if (error) {
+      throw error;
+    }
 
-    const result = await pool.query(query, params);
-    res.json({ providers: result.rows || [] });
+    res.json({ providers: data || [] });
   } catch (error: any) {
     console.error("[Payment Providers] Error:", error);
     res.status(400).json({ error: error.message });
@@ -68,13 +70,18 @@ router.get("/", async (req: Request, res: Response) => {
 // Get all approved payment providers including inactive (admin only)
 router.get("/all", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(`
-      SELECT * FROM approved_payment_providers
-      ORDER BY fiat_currency, type, name
-    `);
+    const { data, error } = await supabase
+      .from("approved_payment_providers")
+      .select("*")
+      .order("fiat_currency")
+      .order("type")
+      .order("name");
 
-    res.json({ providers: result.rows || [] });
+    if (error) {
+      throw error;
+    }
+
+    res.json({ providers: data || [] });
   } catch (error: any) {
     console.error("[Payment Providers] Get all error:", error);
     res.status(400).json({ error: error.message });
@@ -93,34 +100,51 @@ router.post("/", adminMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
-
     // Verify fiat currency exists
-    const currencyResult = await pool.query(
-      "SELECT code FROM fiat_currencies WHERE code = $1",
-      [fiat_currency_code]
-    );
+    const { data: currencyData, error: currencyError } = await supabase
+      .from("fiat_currencies")
+      .select("code")
+      .eq("code", fiat_currency_code)
+      .maybeSingle();
 
-    if (!currencyResult.rows.length) {
+    if (currencyError) {
+      throw currencyError;
+    }
+
+    if (!currencyData) {
       return res.status(400).json({
         error: `Invalid currency: ${fiat_currency_code}`,
       });
     }
 
-    const result = await pool.query(`
-      INSERT INTO approved_payment_providers (fiat_currency, type, name, is_active)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *
-    `, [fiat_currency_code, type, provider_name, is_active]);
+    const { data, error } = await supabase
+      .from("approved_payment_providers")
+      .insert({
+        fiat_currency: fiat_currency_code,
+        type,
+        name: provider_name,
+        is_active,
+      })
+      .select()
+      .maybeSingle();
 
-    // Audit log
-    await pool.query(`
-      INSERT INTO audit_logs (admin_id, action, resource_type, resource_id, details)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [req.user.id, "payment_provider_created", "payment_provider", result.rows[0].id, 
-        JSON.stringify({ fiat_currency_code, type, provider_name })]);
+    if (error) {
+      throw error;
+    }
 
-    res.json({ success: true, provider: result.rows[0] });
+    if (!data) {
+      return res.status(400).json({ error: "Failed to create payment provider" });
+    }
+
+    await supabase.from("audit_logs").insert({
+      admin_id: req.user.id,
+      action: "payment_provider_created",
+      resource_type: "payment_provider",
+      resource_id: data.id,
+      details: JSON.stringify({ fiat_currency_code, type, provider_name }),
+    });
+
+    res.json({ success: true, provider: data });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
@@ -145,44 +169,43 @@ router.put("/:id", adminMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
-
-    const updates: string[] = [];
-    const params: any[] = [];
+    const updates: Record<string, any> = {};
 
     if (provider_name !== undefined) {
-      params.push(provider_name);
-      updates.push(`name = $${params.length}`);
+      updates.name = provider_name;
     }
     if (is_active !== undefined) {
-      params.push(is_active);
-      updates.push(`is_active = $${params.length}`);
+      updates.is_active = is_active;
     }
 
-    if (updates.length === 0) {
+    if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: "No updates provided" });
     }
 
-    params.push(req.params.id);
-    const result = await pool.query(`
-      UPDATE approved_payment_providers
-      SET ${updates.join(", ")}
-      WHERE id = $${params.length}
-      RETURNING *
-    `, params);
+    const { data, error } = await supabase
+      .from("approved_payment_providers")
+      .update(updates)
+      .eq("id", req.params.id)
+      .select()
+      .maybeSingle();
 
-    if (!result.rows.length) {
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
       return res.status(404).json({ error: "Payment provider not found" });
     }
 
-    // Audit log
-    await pool.query(`
-      INSERT INTO audit_logs (admin_id, action, resource_type, resource_id, details)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [req.user.id, "payment_provider_updated", "payment_provider", req.params.id, 
-        JSON.stringify({ provider_name, is_active })]);
+    await supabase.from("audit_logs").insert({
+      admin_id: req.user.id,
+      action: "payment_provider_updated",
+      resource_type: "payment_provider",
+      resource_id: req.params.id,
+      details: JSON.stringify({ provider_name, is_active }),
+    });
 
-    res.json({ success: true, provider: result.rows[0] });
+    res.json({ success: true, provider: data });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
@@ -195,24 +218,28 @@ router.put("/:id", adminMiddleware, async (req: any, res: Response) => {
 // Delete approved payment provider (admin only)
 router.delete("/:id", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const { data, error } = await supabase
+      .from("approved_payment_providers")
+      .delete()
+      .eq("id", req.params.id)
+      .select()
+      .maybeSingle();
 
-    const result = await pool.query(`
-      DELETE FROM approved_payment_providers
-      WHERE id = $1
-      RETURNING *
-    `, [req.params.id]);
+    if (error) {
+      throw error;
+    }
 
-    if (!result.rows.length) {
+    if (!data) {
       return res.status(404).json({ error: "Payment provider not found" });
     }
 
-    // Audit log
-    await pool.query(`
-      INSERT INTO audit_logs (admin_id, action, resource_type, resource_id, details)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [req.user.id, "payment_provider_deleted", "payment_provider", req.params.id, 
-        JSON.stringify({ fiat_currency: result.rows[0].fiat_currency, name: result.rows[0].name })]);
+    await supabase.from("audit_logs").insert({
+      admin_id: req.user.id,
+      action: "payment_provider_deleted",
+      resource_type: "payment_provider",
+      resource_id: req.params.id,
+      details: JSON.stringify({ fiat_currency: data.fiat_currency, name: data.name }),
+    });
 
     res.json({ success: true });
   } catch (error: any) {

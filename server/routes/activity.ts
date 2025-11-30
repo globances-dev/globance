@@ -24,15 +24,20 @@ router.get('/feed', authMiddleware, async (req: any, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit || '20'), 100);
     const activities: any[] = [];
-    const pool = getPostgresPool();
 
     // Get deposits
-    const depositsResult = await pool.query(
-      'SELECT * FROM deposits WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2',
-      [req.user.id, limit]
-    );
+    const { data: deposits, error: depositError } = await supabase
+      .from('deposits')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
-    (depositsResult.rows || []).forEach((d: any) => {
+    if (depositError) {
+      throw depositError;
+    }
+
+    (deposits || []).forEach((d: any) => {
       if (d.status === 'confirmed') {
         activities.push({
           id: `deposit_${d.id}`,
@@ -47,12 +52,18 @@ router.get('/feed', authMiddleware, async (req: any, res: Response) => {
     });
 
     // Get withdrawals
-    const withdrawalsResult = await pool.query(
-      'SELECT * FROM withdrawals WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2',
-      [req.user.id, limit]
-    );
+    const { data: withdrawals, error: withdrawalError } = await supabase
+      .from('withdrawals')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
-    (withdrawalsResult.rows || []).forEach((w: any) => {
+    if (withdrawalError) {
+      throw withdrawalError;
+    }
+
+    (withdrawals || []).forEach((w: any) => {
       activities.push({
         id: `withdrawal_${w.id}`,
         type: 'withdrawal',
@@ -66,33 +77,54 @@ router.get('/feed', authMiddleware, async (req: any, res: Response) => {
     });
 
     // Get package purchases
-    const purchasesResult = await pool.query(
-      `SELECT p.*, pkg.name FROM purchases p
-       LEFT JOIN packages pkg ON p.package_id = pkg.id
-       WHERE p.user_id = $1 ORDER BY p.created_at DESC LIMIT $2`,
-      [req.user.id, limit]
-    );
+    const { data: purchases, error: purchaseError } = await supabase
+      .from('purchases')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
-    (purchasesResult.rows || []).forEach((p: any) => {
+    if (purchaseError) {
+      throw purchaseError;
+    }
+
+    const packageIds = Array.from(new Set((purchases || []).map((p) => p.package_id)));
+    let packageNameMap: Record<string, string> = {};
+    if (packageIds.length > 0) {
+      const { data: packageRows } = await supabase
+        .from('packages')
+        .select('id, name')
+        .in('id', packageIds);
+      packageNameMap = Object.fromEntries((packageRows || []).map((pkg) => [pkg.id, pkg.name]));
+    }
+
+    (purchases || []).forEach((p: any) => {
       activities.push({
         id: `purchase_${p.id}`,
         type: 'package',
         title: 'Package Purchased',
         amount: p.amount,
-        packageName: p.name,
+        packageName: packageNameMap[p.package_id] || p.package_id,
         status: 'success',
         timestamp: p.created_at,
       });
     });
 
     // Get mining earnings transactions
-    const earningsResult = await pool.query(
-      `SELECT * FROM earnings_transactions WHERE user_id = $1 AND type = 'daily_mining_income' AND amount > 0
-       ORDER BY created_at DESC LIMIT $2`,
-      [req.user.id, limit]
-    );
+    const { data: earnings, error: earningsError } = await supabase
+      .from('earnings_transactions')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .eq('type', 'daily_mining_income')
+      .gt('amount', 0)
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
-    (earningsResult.rows || []).forEach((e: any) => {
+    if (earningsError) {
+      throw earningsError;
+    }
+
+    (earnings || []).forEach((e: any) => {
       activities.push({
         id: `earning_${e.id}`,
         type: 'mining',
@@ -104,13 +136,18 @@ router.get('/feed', authMiddleware, async (req: any, res: Response) => {
     });
 
     // Get referral bonuses
-    const referralsResult = await pool.query(
-      `SELECT * FROM referral_bonus_transactions WHERE recipient_id = $1
-       ORDER BY created_at DESC LIMIT $2`,
-      [req.user.id, limit]
-    );
+    const { data: referralBonuses, error: referralError } = await supabase
+      .from('referral_bonus_transactions')
+      .select('*')
+      .eq('recipient_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
-    (referralsResult.rows || []).forEach((r: any) => {
+    if (referralError) {
+      throw referralError;
+    }
+
+    (referralBonuses || []).forEach((r: any) => {
       activities.push({
         id: `referral_${r.id}`,
         type: 'referral',
@@ -135,28 +172,36 @@ router.get('/feed', authMiddleware, async (req: any, res: Response) => {
 // Get today's earnings only
 router.get('/today-earnings', authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
     const todayISO = today.toISOString();
 
     // Get mining earnings for today
-    const earningsResult = await pool.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM earnings_transactions
-       WHERE user_id = $1 AND created_at >= $2 AND type = 'daily_mining_income'`,
-      [req.user.id, todayISO]
-    );
+    const { data: earningRows, error: earningError } = await supabase
+      .from('earnings_transactions')
+      .select('amount, created_at')
+      .eq('user_id', req.user.id)
+      .eq('type', 'daily_mining_income')
+      .gte('created_at', todayISO);
 
-    const miningTotal = parseFloat(earningsResult.rows[0].total || 0);
+    if (earningError) {
+      throw earningError;
+    }
+
+    const miningTotal = (earningRows || []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
 
     // Get referral earnings for today
-    const referralsResult = await pool.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM referral_bonus_transactions
-       WHERE recipient_id = $1 AND created_at >= $2`,
-      [req.user.id, todayISO]
-    );
+    const { data: referralRows, error: todayReferralError } = await supabase
+      .from('referral_bonus_transactions')
+      .select('amount, created_at')
+      .eq('recipient_id', req.user.id)
+      .gte('created_at', todayISO);
 
-    const referralTotal = parseFloat(referralsResult.rows[0].total || 0);
+    if (todayReferralError) {
+      throw todayReferralError;
+    }
+
+    const referralTotal = (referralRows || []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
 
     res.json({
       mining_earnings: miningTotal,

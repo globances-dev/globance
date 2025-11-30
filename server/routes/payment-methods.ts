@@ -25,21 +25,21 @@ const authMiddleware = async (req: any, res: Response, next: Function) => {
 router.get("/", authMiddleware, async (req: any, res: Response) => {
   try {
     const { fiat_currency_code } = req.query;
-    const pool = getPostgresPool();
+    const filters = supabase
+      .from("user_payment_methods")
+      .select("*")
+      .eq("user_id", req.user.id)
+      .order("created_at", { ascending: false });
 
-    let query = "SELECT * FROM user_payment_methods WHERE user_id = $1";
-    const params = [req.user.id];
+    const { data, error } = fiat_currency_code
+      ? await filters.eq("fiat_currency_code", fiat_currency_code)
+      : await filters;
 
-    if (fiat_currency_code) {
-      query += " AND fiat_currency_code = $2";
-      params.push(fiat_currency_code);
+    if (error) {
+      throw error;
     }
 
-    query += " ORDER BY created_at DESC";
-
-    const result = await pool.query(query, params);
-
-    res.json({ payment_methods: result.rows || [] });
+    res.json({ payment_methods: data || [] });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -48,17 +48,22 @@ router.get("/", authMiddleware, async (req: any, res: Response) => {
 // Get specific payment method
 router.get("/:id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT * FROM user_payment_methods WHERE id = $1 AND user_id = $2",
-      [req.params.id, req.user.id]
-    );
+    const { data, error } = await supabase
+      .from("user_payment_methods")
+      .select("*")
+      .eq("id", req.params.id)
+      .eq("user_id", req.user.id)
+      .maybeSingle();
 
-    if (!result.rows || result.rows.length === 0) {
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
       return res.status(404).json({ error: "Payment method not found" });
     }
 
-    res.json({ payment_method: result.rows[0] });
+    res.json({ payment_method: data });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -83,32 +88,45 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
-
     // Verify fiat currency exists
-    const currencyResult = await pool.query(
-      "SELECT code FROM fiat_currencies WHERE code = $1 AND is_active = true",
-      [fiat_currency_code.toUpperCase()]
-    );
+    const { data: currencyData, error: currencyError } = await supabase
+      .from("fiat_currencies")
+      .select("code")
+      .eq("code", fiat_currency_code.toUpperCase())
+      .eq("is_active", true)
+      .maybeSingle();
 
-    if (!currencyResult.rows || currencyResult.rows.length === 0) {
+    if (currencyError) {
+      throw currencyError;
+    }
+
+    if (!currencyData) {
       return res.status(400).json({
         error: `Invalid or inactive currency: ${fiat_currency_code}`,
       });
     }
 
-    const methodResult = await pool.query(
-      `INSERT INTO user_payment_methods (user_id, fiat_currency_code, provider, account_holder_name, account_details)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [req.user.id, fiat_currency_code.toUpperCase(), provider, account_name, JSON.stringify({ account_number, ...extra_info })]
-    );
+    const { data, error } = await supabase
+      .from("user_payment_methods")
+      .insert({
+        user_id: req.user.id,
+        fiat_currency_code: fiat_currency_code.toUpperCase(),
+        provider,
+        account_holder_name: account_name,
+        account_details: { account_number, ...extra_info },
+      })
+      .select()
+      .maybeSingle();
 
-    if (!methodResult.rows || methodResult.rows.length === 0) {
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
       return res.status(400).json({ error: "Failed to create payment method" });
     }
 
-    res.json({ success: true, payment_method: methodResult.rows[0] });
+    res.json({ success: true, payment_method: data });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
@@ -134,7 +152,6 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
     const updates: any = {};
     if (provider !== undefined) updates.provider = provider;
     if (account_name !== undefined) updates.account_holder_name = account_name;
@@ -142,27 +159,30 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
       const details: any = {};
       if (account_number) details.account_number = account_number;
       if (extra_info) Object.assign(details, extra_info);
-      updates.account_details = JSON.stringify(details);
+      updates.account_details = details;
     }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: "No updates provided" });
     }
 
-    const setClauses = Object.keys(updates)
-      .map((key, i) => `${key} = $${i + 1}`)
-      .join(", ");
+    const { data, error } = await supabase
+      .from("user_payment_methods")
+      .update(updates)
+      .eq("id", req.params.id)
+      .eq("user_id", req.user.id)
+      .select()
+      .maybeSingle();
 
-    const updateResult = await pool.query(
-      `UPDATE user_payment_methods SET ${setClauses} WHERE id = $${Object.keys(updates).length + 1} AND user_id = $${Object.keys(updates).length + 2} RETURNING *`,
-      [...Object.values(updates), req.params.id, req.user.id]
-    );
+    if (error) {
+      throw error;
+    }
 
-    if (!updateResult.rows || updateResult.rows.length === 0) {
+    if (!data) {
       return res.status(404).json({ error: "Payment method not found" });
     }
 
-    res.json({ success: true, payment_method: updateResult.rows[0] });
+    res.json({ success: true, payment_method: data });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
@@ -174,13 +194,19 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
 // Delete payment method
 router.delete("/:id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "DELETE FROM user_payment_methods WHERE id = $1 AND user_id = $2 RETURNING *",
-      [req.params.id, req.user.id]
-    );
+    const { data, error } = await supabase
+      .from("user_payment_methods")
+      .delete()
+      .eq("id", req.params.id)
+      .eq("user_id", req.user.id)
+      .select()
+      .maybeSingle();
 
-    if (!result.rows || result.rows.length === 0) {
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
       return res.status(404).json({ error: "Payment method not found" });
     }
 

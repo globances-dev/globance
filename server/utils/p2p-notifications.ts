@@ -9,13 +9,18 @@ export async function createP2PNotification(
   data?: any
 ): Promise<void> {
   try {
-    const pool = getPostgresPool();
-    
-    // Create activity/notification entry
-    await pool.query(`
-      INSERT INTO earnings_transactions (user_id, amount, type, description)
-      VALUES ($1, 0, $2, $3)
-    `, [userId, `p2p_${type}`, message]);
+    const { error } = await supabase
+      .from("earnings_transactions")
+      .insert({
+        user_id: userId,
+        amount: 0,
+        type: `p2p_${type}`,
+        description: message,
+      });
+
+    if (error) {
+      throw error;
+    }
 
   } catch (error) {
     console.error('Error creating P2P notification:', error);

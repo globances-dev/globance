@@ -5,8 +5,6 @@ import { verifyToken } from "../utils/jwt";
 
 const router = Router();
 
-console.log("[Settings API] Initialized - Using pure PostgreSQL connection");
-
 const adminMiddleware = async (req: any, res: Response, next: Function) => {
   const token = req.headers.authorization?.replace("Bearer ", "");
   if (!token) {
@@ -19,13 +17,13 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT role FROM users WHERE id = $1",
-      [decoded.id]
-    );
+    const { data, error } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", decoded.id)
+      .single();
 
-    if (!result.rows.length || result.rows[0].role !== "admin") {
+    if (error || !data || data.role !== "admin") {
       return res.status(403).json({ error: "Admin access required" });
     }
 
@@ -41,16 +39,20 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 router.get("/category/:category", async (req: Request, res: Response) => {
   try {
     console.log(`📖 Fetching settings for category: ${req.params.category}`);
-    
-    const pool = getPostgresPool();
-    const result = await pool.query(
-      "SELECT id, key, value, category, created_at, updated_at FROM settings WHERE category = $1 ORDER BY key",
-      [req.params.category]
-    );
 
-    const settings = result.rows;
-    console.log(`✅ Retrieved ${settings.length} settings:`, settings);
-    res.json({ settings });
+    const { data: settings, error } = await supabase
+      .from("settings")
+      .select("id, key, value, category, created_at, updated_at")
+      .eq("category", req.params.category)
+      .order("key");
+
+    if (error) {
+      throw error;
+    }
+
+    const results = settings || [];
+    console.log(`✅ Retrieved ${results.length} settings:`, results);
+    res.json({ settings: results });
   } catch (error: any) {
     console.error("Settings fetch error:", error);
     res.status(400).json({ error: error.message });
@@ -73,26 +75,30 @@ router.post("/bulk-update", adminMiddleware, async (req: any, res: Response) => 
         ),
       })
       .parse(req.body);
-    
-    console.log("📋 Parsed settings to update:", settings);
 
-    const pool = getPostgresPool();
+    console.log("📋 Parsed settings to update:", settings);
     const updated = [];
-    
+
     for (const setting of settings) {
       console.log(`\n🔄 Updating ${setting.key}`);
       console.log(`   Value: "${setting.value}"`);
-      
-      try {
-        const result = await pool.query(
-          "UPDATE settings SET value = $1, updated_at = NOW() WHERE key = $2 RETURNING *",
-          [setting.value, setting.key]
-        );
 
-        if (result.rows.length > 0) {
+      try {
+        const { data, error } = await supabase
+          .from("settings")
+          .update({ value: setting.value, updated_at: new Date().toISOString() })
+          .eq("key", setting.key)
+          .select()
+          .maybeSingle();
+
+        if (error) {
+          throw error;
+        }
+
+        if (data) {
           console.log(`✅ Successfully updated ${setting.key}`);
-          console.log(`   New value: "${result.rows[0].value}"`);
-          updated.push(result.rows[0]);
+          console.log(`   New value: "${data.value}"`);
+          updated.push(data);
         } else {
           console.error(`❌ Setting ${setting.key} not found in database`);
         }
@@ -104,11 +110,12 @@ router.post("/bulk-update", adminMiddleware, async (req: any, res: Response) => 
     console.log(`\n📊 Bulk update complete: ${updated.length}/${settings.length} succeeded`);
 
     // Log to audit
-    await pool.query(
-      `INSERT INTO audit_logs (admin_id, action, resource_type, details)
-       VALUES ($1, $2, $3, $4)`,
-      [req.user.id, "settings_bulk_updated", "setting", JSON.stringify({ count: updated.length, keys: settings.map(s => s.key) })]
-    );
+    await supabase.from("audit_logs").insert({
+      admin_id: req.user.id,
+      action: "settings_bulk_updated",
+      resource_type: "setting",
+      details: JSON.stringify({ count: updated.length, keys: settings.map((s) => s.key) }),
+    });
 
     res.json({ success: true, updated: updated.length, settings: updated });
   } catch (error: any) {
