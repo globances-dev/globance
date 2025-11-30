@@ -14,7 +14,7 @@ Provide me with the connection string (DATABASE_URL)
 
 Add it to Replit secrets as:
 
-DATABASE_URL_PRODUCTION
+legacy production database variable (deprecated)UCTION
 
 2️⃣ Split My Environment Into Two Modes
 
@@ -65,7 +65,7 @@ Make sure every table contains the correct columns so the backend won’t break.
 
 Please update the deployment settings so that:
 
-The live public URL uses DATABASE_URL_PRODUCTION
+The live public URL uses legacy production database variable (deprecated)UCTION
 
 The Replit preview mode uses the development DB
 

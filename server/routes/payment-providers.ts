@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabasePool } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 
 const router = Router();
@@ -18,7 +18,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const result = await pool.query(
       "SELECT role FROM users WHERE id = $1",
       [decoded.id]
@@ -40,7 +40,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 router.get("/", async (req: Request, res: Response) => {
   try {
     const { fiat_currency_code, type } = req.query;
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     let query = "SELECT * FROM approved_payment_providers WHERE is_active = true";
     const params: any[] = [];
@@ -68,7 +68,7 @@ router.get("/", async (req: Request, res: Response) => {
 // Get all approved payment providers including inactive (admin only)
 router.get("/all", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const result = await pool.query(`
       SELECT * FROM approved_payment_providers
       ORDER BY fiat_currency, type, name
@@ -93,7 +93,7 @@ router.post("/", adminMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     // Verify fiat currency exists
     const currencyResult = await pool.query(
@@ -145,7 +145,7 @@ router.put("/:id", adminMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     const updates: string[] = [];
     const params: any[] = [];
@@ -195,7 +195,7 @@ router.put("/:id", adminMiddleware, async (req: any, res: Response) => {
 // Delete approved payment provider (admin only)
 router.delete("/:id", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     const result = await pool.query(`
       DELETE FROM approved_payment_providers

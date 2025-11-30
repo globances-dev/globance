@@ -1,6 +1,6 @@
 import { Router, Response } from "express";
 import { verifyToken } from "../utils/jwt";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabasePool } from "../utils/supabase";
 
 const router = Router();
 
@@ -10,7 +10,7 @@ let tableColumnsCache: Map<string, Set<string>> = new Map();
 async function getValidTables(): Promise<Set<string>> {
   if (validTablesCache) return validTablesCache;
 
-  const pool = getPostgresPool();
+  const pool = getSupabasePool();
   const result = await pool.query(`
     SELECT table_name FROM information_schema.tables
     WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
@@ -25,7 +25,7 @@ async function getValidColumns(tableName: string): Promise<Set<string>> {
     return tableColumnsCache.get(tableName)!;
   }
 
-  const pool = getPostgresPool();
+  const pool = getSupabasePool();
   const result = await pool.query(
     `
     SELECT column_name FROM information_schema.columns
@@ -70,7 +70,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const result = await pool.query("SELECT role FROM users WHERE id = $1", [
       decoded.id,
     ]);
@@ -89,7 +89,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 
 router.get("/tables", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     const result = await pool.query(`
       SELECT 
@@ -139,7 +139,7 @@ router.get(
         return res.status(400).json({ error: "Invalid table name" });
       }
 
-      const pool = getPostgresPool();
+      const pool = getSupabasePool();
 
       const result = await pool.query(
         `
@@ -198,7 +198,7 @@ router.get(
         return res.status(400).json({ error: "Invalid table name" });
       }
 
-      const pool = getPostgresPool();
+      const pool = getSupabasePool();
       const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
 
       let query = `SELECT * FROM "${tableName}"`;
@@ -268,7 +268,7 @@ router.put(
         }
       }
 
-      const pool = getPostgresPool();
+      const pool = getSupabasePool();
 
       const setClauses: string[] = [];
       const values: any[] = [];
@@ -326,7 +326,7 @@ router.delete(
         return res.status(400).json({ error: "Invalid primary key column" });
       }
 
-      const pool = getPostgresPool();
+      const pool = getSupabasePool();
 
       const result = await pool.query(
         `DELETE FROM "${tableName}" WHERE "${primaryKey}" = $1 RETURNING *`,
@@ -408,7 +408,7 @@ router.post("/query", adminMiddleware, async (req: any, res: Response) => {
       }
     }
 
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const result = await pool.query(sql);
 
     console.log(

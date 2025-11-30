@@ -142,7 +142,7 @@ Check if deposit was recorded:
 
 ```sql
 -- Connect to database
-psql "$DATABASE_URL_PROD"
+psql "$legacy production database variable (deprecated)"
 
 -- Check recent deposits
 SELECT id, user_id, amount, network, status, created_at 

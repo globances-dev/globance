@@ -10,7 +10,7 @@ Globance is a production-ready cloud mining and peer-to-peer marketplace platfor
 - Tailwind CSS for styling
 
 ## System Architecture
-The project utilizes a modern web stack with React 18 (Vite, TypeScript, Tailwind CSS) for the frontend and Node.js (Express, TypeScript) for the backend. **Pure PostgreSQL** (Neon-backed via Replit) serves as the database with a dual-database architecture: DATABASE_URL_DEV for development and DATABASE_URL_PROD for production. Authentication is managed via JWT. Radix UI provides a consistent design system for the UI/UX.
+The project utilizes a modern web stack with React 18 (Vite, TypeScript, Tailwind CSS) for the frontend and Node.js (Express, TypeScript) for the backend. **Pure PostgreSQL** (Neon-backed via Replit) serves as the database with a dual-database architecture: legacy development database variable (deprecated) for development and legacy production database variable (deprecated) for production. Authentication is managed via JWT. Radix UI provides a consistent design system for the UI/UX.
 
 **Key Features:**
 - **Cloud Mining Packages**: 6 tiered packages (10 USDT - 1000 USDT) offering 2.5% - 3.0% daily returns.
@@ -32,7 +32,7 @@ The project utilizes a modern web stack with React 18 (Vite, TypeScript, Tailwin
 The application is configured for Replit Autoscale Deployment, suitable for 24/7 uptime, webhook processing, and reliable cron job execution.
 
 ## External Dependencies
-- **PostgreSQL (Neon)**: Dual-database architecture managed by Replit. DATABASE_URL_DEV for development, DATABASE_URL_PROD for production. No Supabase dependency.
+- **PostgreSQL (Neon)**: Dual-database architecture managed by Replit. legacy development database variable (deprecated) for development, legacy production database variable (deprecated) for production. No Supabase dependency.
 - **NOWPayments**: Custody API for automatic USDT deposits (TRC20/BEP20). Payouts disabled as of Nov 22 - withdrawals are now manual via admin panel.
 - **SendGrid**: Transactional email service for automated notifications (registration, password reset, deposit confirmation).
 
@@ -73,7 +73,7 @@ The application is configured for Replit Autoscale Deployment, suitable for 24/7
 - **Complete Supabase Elimination** (Nov 25, 2025): Migrated entire platform to pure PostgreSQL:
   - Removed @supabase/supabase-js package completely
   - Converted all backend files to use getPostgresPool() from server/utils/postgres.ts
-  - Dual-database architecture: DATABASE_URL_DEV (development) and DATABASE_URL_PROD (production)
+  - Dual-database architecture: legacy development database variable (deprecated) (development) and legacy production database variable (deprecated) (production)
   - All routes converted: admin.ts, settings.ts, referral.ts, p2p-trades.ts, p2p-admin-stats.ts, payment-providers.ts, p2p-notifications.ts, p2p-cron.ts, seed-test-data.ts
   - Added complete referral utilities: checkPackageEligibility, getUplineUsers, recordReferralBonus, recordEarningsTransaction
   - Configured Replit Autoscale Deployment with production environment variables
