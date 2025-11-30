@@ -1,11 +1,11 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 
 const router = Router();
 
-console.log("[Settings API] Initialized - Using pure PostgreSQL connection");
+console.log("[Settings API] Initialized - Supabase client active");
 
 const adminMiddleware = async (req: any, res: Response, next: Function) => {
   const token = req.headers.authorization?.replace("Bearer ", "");
@@ -19,7 +19,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       "SELECT role FROM users WHERE id = $1",
       [decoded.id]
@@ -42,7 +42,7 @@ router.get("/category/:category", async (req: Request, res: Response) => {
   try {
     console.log(`📖 Fetching settings for category: ${req.params.category}`);
     
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       "SELECT id, key, value, category, created_at, updated_at FROM settings WHERE category = $1 ORDER BY key",
       [req.params.category]
@@ -76,7 +76,7 @@ router.post("/bulk-update", adminMiddleware, async (req: any, res: Response) => 
     
     console.log("📋 Parsed settings to update:", settings);
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const updated = [];
     
     for (const setting of settings) {

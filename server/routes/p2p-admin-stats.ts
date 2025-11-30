@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 
 const router = Router();
@@ -17,7 +17,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       "SELECT role FROM users WHERE id = $1",
       [decoded.id]
@@ -38,7 +38,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 // Get marketplace-wide P2P statistics (admin only)
 router.get("/", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Get active offers count
     const offersResult = await pool.query(
@@ -100,7 +100,7 @@ router.get("/", adminMiddleware, async (req: any, res: Response) => {
 // Get all offers (admin only)
 router.get("/offers", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     
     const result = await pool.query(`
       SELECT o.*, u.email, u.referral_code as ref_code
@@ -120,7 +120,7 @@ router.get("/offers", adminMiddleware, async (req: any, res: Response) => {
 router.get("/trades", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { status } = req.query;
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     let query = `
       SELECT t.*, 

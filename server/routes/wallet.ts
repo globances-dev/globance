@@ -3,7 +3,7 @@ import { verifyToken } from '../utils/jwt';
 import { createPermanentDepositAddress, getMinimumUSDT } from '../utils/nowpayments';
 import { sendWithdrawalNotificationEmail } from '../utils/email';
 import { z } from 'zod';
-import { getPostgresPool } from '../utils/postgres.js';
+import { getSupabaseQueryClient } from '../utils/supabase';
 
 const router = Router();
 
@@ -26,7 +26,7 @@ const authMiddleware = (req: any, res: Response, next: Function) => {
 // Get complete wallet data (balance + total earned)
 router.get('/me', authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     
     const walletResult = await pool.query(
       'SELECT * FROM wallets WHERE user_id = $1',
@@ -60,7 +60,7 @@ router.get('/me', authMiddleware, async (req: any, res: Response) => {
 // Get wallet balance (legacy endpoint - kept for backward compatibility)
 router.get('/balance', authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       'SELECT * FROM wallets WHERE user_id = $1',
       [req.user.id]
@@ -83,7 +83,7 @@ router.get('/balance', authMiddleware, async (req: any, res: Response) => {
 // Get or create deposit addresses (PERMANENT - created once per user)
 router.get('/deposit-addresses', authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     
     // Get existing permanent addresses
     const addressesResult = await pool.query(
@@ -141,7 +141,7 @@ router.get('/deposit-addresses', authMiddleware, async (req: any, res: Response)
 // Get deposit history
 router.get('/deposit-history', authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       'SELECT * FROM deposits WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
       [req.user.id]
@@ -167,7 +167,7 @@ router.post('/withdrawal-request', authMiddleware, async (req: any, res: Respons
 // Get withdrawal history
 router.get('/withdrawal-history', authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       'SELECT * FROM withdrawals WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
       [req.user.id]
@@ -230,7 +230,7 @@ router.post('/withdraw', authMiddleware, async (req: any, res: Response) => {
     const netAmount = amount - WITHDRAWAL_FEE;
 
     // Check user balance
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const walletResult = await pool.query(
       'SELECT usdt_balance FROM wallets WHERE user_id = $1',
       [req.user.id]
@@ -247,7 +247,7 @@ router.post('/withdraw', authMiddleware, async (req: any, res: Response) => {
       });
     }
 
-    // Create withdrawal record using direct PostgreSQL
+    // Create withdrawal record using Supabase RPC
     console.log(`[Withdrawal] Creating withdrawal via direct SQL: ${amount} USDT to ${address}`);
 
     let withdrawal;
@@ -277,7 +277,7 @@ router.post('/withdraw', authMiddleware, async (req: any, res: Response) => {
         [amount, req.user.id]
       );
 
-      if (updateResult.rowCount === 0) {
+      if (!updateResult.rows || updateResult.rows.length === 0) {
         throw new Error('Wallet update failed - no rows affected');
       }
 

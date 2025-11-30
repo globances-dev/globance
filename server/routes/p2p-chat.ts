@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 
 const router = Router();
@@ -24,7 +24,7 @@ const authMiddleware = async (req: any, res: Response, next: Function) => {
 // Get chat messages for a trade
 router.get("/:trade_id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Verify user is participant in trade
     const tradeResult = await pool.query(
@@ -68,7 +68,7 @@ router.post("/:trade_id", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Verify user is participant
     const tradeResult = await pool.query(

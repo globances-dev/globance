@@ -1,4 +1,4 @@
-import { getPostgresPool } from './postgres';
+import { getSupabaseQueryClient } from './supabase';
 import { sendEmail } from './email';
 
 export async function createP2PNotification(
@@ -9,7 +9,7 @@ export async function createP2PNotification(
   data?: any
 ): Promise<void> {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     
     // Create activity/notification entry
     await pool.query(`

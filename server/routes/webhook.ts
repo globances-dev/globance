@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getPostgresPool } from '../utils/postgres';
+import { getSupabaseQueryClient } from '../utils/supabase';
 import { verifyIPNSignature, NOWPaymentsWebhookPayload, getMinimumUSDT } from '../utils/nowpayments';
 import { sendDepositConfirmationEmail } from '../utils/email';
 
@@ -50,7 +50,7 @@ router.post('/nowpayments', async (req: Request, res: Response) => {
       return res.json({ success: true });
     }
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Find deposit address
     const addressResult = await pool.query(

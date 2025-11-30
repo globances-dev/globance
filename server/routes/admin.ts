@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 import { sendWithdrawalNotificationEmail } from "../utils/email";
 import { z } from "zod";
@@ -24,7 +24,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       "SELECT role FROM users WHERE id = $1",
       [decoded.id]
@@ -46,7 +46,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 router.get("/users", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { search, role } = req.query;
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     let query = `
       SELECT u.*, w.usdt_balance 
@@ -90,7 +90,7 @@ router.post(
         .object({ is_frozen: z.boolean() })
         .parse(req.body);
 
-      const pool = getPostgresPool();
+      const pool = getSupabaseQueryClient();
 
       const result = await pool.query(
         "UPDATE users SET is_frozen = $1 WHERE id = $2 RETURNING *",
@@ -121,7 +121,7 @@ router.post(
         .object({ role: z.enum(["user", "admin"]) })
         .parse(req.body);
 
-      const pool = getPostgresPool();
+      const pool = getSupabaseQueryClient();
 
       const result = await pool.query(
         "UPDATE users SET role = $1 WHERE id = $2 RETURNING *",
@@ -145,7 +145,7 @@ router.post(
 // Get dashboard analytics
 router.get("/analytics", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Total users
     const usersResult = await pool.query("SELECT COUNT(*) as count FROM users");
@@ -234,7 +234,7 @@ router.get("/analytics", adminMiddleware, async (req: any, res: Response) => {
 router.get("/withdrawals", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { status } = req.query;
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     let query = `
       SELECT w.*, u.email, u.username, u.full_name
@@ -264,7 +264,7 @@ router.post(
   adminMiddleware,
   async (req: any, res: Response) => {
     try {
-      const pool = getPostgresPool();
+      const pool = getSupabaseQueryClient();
 
       // Get withdrawal
       const withdrawalResult = await pool.query(
@@ -322,7 +322,7 @@ router.post(
   async (req: any, res: Response) => {
     try {
       const reason = req.body?.reason || "Rejected by admin";
-      const pool = getPostgresPool();
+      const pool = getSupabaseQueryClient();
 
       // Get withdrawal
       const withdrawalResult = await pool.query(
@@ -383,7 +383,7 @@ router.post(
 router.get("/deposits", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { status } = req.query;
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     let query = `
       SELECT d.*, u.email, u.username, u.full_name
@@ -411,7 +411,7 @@ router.get("/deposits", adminMiddleware, async (req: any, res: Response) => {
 router.get("/purchases", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { status } = req.query;
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     let query = `
       SELECT p.*, u.email, u.username, u.full_name, pkg.name as package_name
@@ -439,7 +439,7 @@ router.get("/purchases", adminMiddleware, async (req: any, res: Response) => {
 // Get referral stats
 router.get("/referrals", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Top referrers
     const topReferrersResult = await pool.query(`
@@ -474,7 +474,7 @@ router.get("/referrals", adminMiddleware, async (req: any, res: Response) => {
 router.get("/audit-logs", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { limit = 100 } = req.query;
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     const result = await pool.query(`
       SELECT al.*, u.email as admin_email
@@ -495,7 +495,7 @@ router.get("/audit-logs", adminMiddleware, async (req: any, res: Response) => {
 router.get("/cron-logs", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { limit = 30 } = req.query;
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     const result = await pool.query(`
       SELECT * FROM cron_logs
@@ -513,7 +513,7 @@ router.get("/cron-logs", adminMiddleware, async (req: any, res: Response) => {
 // Get/update settings
 router.get("/settings", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query("SELECT * FROM settings ORDER BY category, key");
     res.json({ settings: result.rows || [] });
   } catch (error: any) {
@@ -532,7 +532,7 @@ router.post("/settings", adminMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     await pool.query(`
       INSERT INTO settings (category, key, value)
@@ -560,7 +560,7 @@ router.put("/packages/:id", adminMiddleware, async (req: any, res: Response) => 
     const { id } = req.params;
     const { name, min_investment, daily_percentage, duration_days, referral_required } = req.body;
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Update package - use correct column names matching database schema
     await pool.query(`
@@ -590,7 +590,7 @@ router.put("/packages/:id", adminMiddleware, async (req: any, res: Response) => 
 // Get user details with full info
 router.get("/users/:user_id", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Get user with wallet
     const userResult = await pool.query(`
@@ -654,7 +654,7 @@ router.post(
         })
         .parse(req.body);
 
-      const pool = getPostgresPool();
+      const pool = getSupabaseQueryClient();
 
       // Update wallet
       const result = await pool.query(
@@ -697,7 +697,7 @@ router.post(
 // Manually trigger daily mining cron
 router.post("/trigger-mining-cron", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const today = new Date().toISOString().split('T')[0];
 
     // Check if already run today

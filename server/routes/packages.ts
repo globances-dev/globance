@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 import { z } from "zod";
 import {
@@ -60,7 +60,7 @@ const authMiddleware = (req: any, res: Response, next: Function) => {
 // Get all packages
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       "SELECT * FROM packages ORDER BY id"
     );
@@ -76,7 +76,7 @@ router.get("/", async (req: Request, res: Response) => {
 // Get package details
 router.get("/:id", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       "SELECT * FROM packages WHERE id = $1",
       [req.params.id]
@@ -131,7 +131,7 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
       return res.status(400).json({ error: `Minimum investment is ${pkgConfig.min_invest} USDT` });
     }
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Check referral requirements for non-Bronze packages
     if (pkgConfig.referral_required > 0) {
@@ -339,7 +339,7 @@ router.get(
   authMiddleware,
   async (req: any, res: Response) => {
     try {
-      const pool = getPostgresPool();
+      const pool = getSupabaseQueryClient();
       const result = await pool.query(
         `SELECT p.*, pkg.name, pkg.daily_percentage FROM purchases p
          LEFT JOIN packages pkg ON p.package_id = pkg.id

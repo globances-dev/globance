@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import type { ScheduledTask } from "node-cron";
-import { getPostgresPool, getEnvironmentInfo } from "./postgres";
+import { getSupabaseQueryClient, getSupabaseEnvironmentInfo } from "./supabase";
 import {
   recordReferralBonus,
   recordEarningsTransaction,
@@ -24,7 +24,7 @@ async function processDailyEarningsInternal() {
       `[INTERNAL-CRON] ⏰ Starting daily earnings processing at ${now.toISOString()}`
     );
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Check if already processed today (idempotency)
     const cronLogResult = await pool.query(
@@ -184,7 +184,7 @@ async function processDailyEarningsInternal() {
  * No external API calls needed - runs internally on Replit
  */
 export function initializeScheduler() {
-  const env = getEnvironmentInfo();
+  const env = getSupabaseEnvironmentInfo();
   console.log(`[Scheduler] 🚀 Initializing internal scheduler (${env.mode})...`);
   
   const isProduction = process.env.ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production';
@@ -197,7 +197,7 @@ export function initializeScheduler() {
   }
 
   console.log("[Scheduler] ⏰ Mining cron: 21:00 UTC daily (0 21 * * *)");
-  console.log("[Scheduler] 🚀 Running in PRODUCTION - database: DATABASE_URL_PROD");
+  console.log("[Scheduler] 🚀 Running in PRODUCTION - Supabase managed database");
 
   // Schedule mining earnings at 21:00 UTC every day (PRODUCTION ONLY)
   scheduledJob = cron.schedule("0 21 * * *", async () => {
@@ -208,7 +208,7 @@ export function initializeScheduler() {
     console.log("=".repeat(60) + "\n");
   });
 
-  console.log("[Scheduler] ✅ Internal cron scheduler ACTIVE (production database)");
+  console.log("[Scheduler] ✅ Internal cron scheduler ACTIVE (Supabase database)");
   console.log("[Scheduler] ✓ Scheduler ready");
 
   return scheduledJob;
