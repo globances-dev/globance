@@ -17,8 +17,8 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getSupabaseQueryClient();
-    const result = await pool.query(
+    const db = getSupabaseQueryClient();
+    const result = await db.exec(
       "SELECT role FROM users WHERE id = $1",
       [decoded.id]
     );
@@ -38,22 +38,22 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 // Get marketplace-wide P2P statistics (admin only)
 router.get("/", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getSupabaseQueryClient();
+    const db = getSupabaseQueryClient();
 
     // Get active offers count
-    const offersResult = await pool.query(
+    const offersResult = await db.exec(
       "SELECT COUNT(*) as count FROM p2p_offers WHERE is_active = true"
     );
     const activeOffers = parseInt(offersResult.rows[0]?.count) || 0;
 
     // Get all trades
-    const tradesResult = await pool.query(
+    const tradesResult = await db.exec(
       "SELECT id, status, amount_usdt, buyer_id, seller_id, created_at FROM p2p_trades ORDER BY created_at DESC"
     );
     const allTrades = tradesResult.rows || [];
 
     // Get disputed trades count
-    const disputesResult = await pool.query(
+    const disputesResult = await db.exec(
       "SELECT COUNT(*) as count FROM p2p_trades WHERE status = 'disputed'"
     );
     const openDisputes = parseInt(disputesResult.rows[0]?.count) || 0;
@@ -100,9 +100,9 @@ router.get("/", adminMiddleware, async (req: any, res: Response) => {
 // Get all offers (admin only)
 router.get("/offers", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getSupabaseQueryClient();
+    const db = getSupabaseQueryClient();
     
-    const result = await pool.query(`
+    const result = await db.exec(`
       SELECT o.*, u.email, u.referral_code as ref_code
       FROM p2p_offers o
       JOIN users u ON o.user_id = u.id
@@ -120,7 +120,7 @@ router.get("/offers", adminMiddleware, async (req: any, res: Response) => {
 router.get("/trades", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { status } = req.query;
-    const pool = getSupabaseQueryClient();
+    const db = getSupabaseQueryClient();
 
     let query = `
       SELECT t.*, 
@@ -141,7 +141,7 @@ router.get("/trades", adminMiddleware, async (req: any, res: Response) => {
 
     query += " ORDER BY t.created_at DESC";
 
-    const result = await pool.query(query, params);
+    const result = await db.exec(query, params);
     res.json({ trades: result.rows || [] });
   } catch (error: any) {
     console.error("[P2P Admin Stats] Get trades error:", error);

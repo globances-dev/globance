@@ -50,10 +50,10 @@ router.post('/nowpayments', async (req: Request, res: Response) => {
       return res.json({ success: true });
     }
 
-    const pool = getSupabaseQueryClient();
+    const db = getSupabaseQueryClient();
 
     // Find deposit address
-    const addressResult = await pool.query(
+    const addressResult = await db.exec(
       "SELECT id, user_id, network, provider, provider_wallet_id FROM deposit_addresses WHERE address = $1",
       [payload.pay_address]
     );
@@ -66,7 +66,7 @@ router.post('/nowpayments', async (req: Request, res: Response) => {
     const addressRecord = addressResult.rows[0];
 
     // Get user email
-    const userResult = await pool.query(
+    const userResult = await db.exec(
       "SELECT email FROM users WHERE id = $1",
       [addressRecord.user_id]
     );
@@ -74,7 +74,7 @@ router.post('/nowpayments', async (req: Request, res: Response) => {
     const user = userResult.rows?.[0];
 
     // Check for duplicate deposit (idempotency)
-    const existingResult = await pool.query(
+    const existingResult = await db.exec(
       "SELECT id FROM deposits WHERE provider_payment_id = $1",
       [payload.payment_id.toString()]
     );
@@ -92,7 +92,7 @@ router.post('/nowpayments', async (req: Request, res: Response) => {
       console.log(`[NOWPayments] Deposit ${amount} below minimum ${MIN_DEPOSIT}, not crediting user`);
       
       // Persist sub-minimum deposit for audit trail
-      await pool.query(
+      await db.exec(
         `INSERT INTO deposits (user_id, address_id, network, amount, txid, provider, provider_payment_id, status, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'failed', CURRENT_TIMESTAMP)`,
         [addressRecord.user_id, addressRecord.id, addressRecord.network, amount, (payload as any).payin_hash || payload.payment_id.toString(), 'nowpayments', payload.payment_id.toString()]
@@ -104,7 +104,7 @@ router.post('/nowpayments', async (req: Request, res: Response) => {
     // Create deposit record
     let deposit: any;
     try {
-      const depositResult = await pool.query(
+      const depositResult = await db.exec(
         `INSERT INTO deposits (user_id, address_id, network, amount, txid, provider, provider_payment_id, status, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'completed', CURRENT_TIMESTAMP)
          RETURNING *`,
@@ -127,13 +127,13 @@ router.post('/nowpayments', async (req: Request, res: Response) => {
     }
 
     // Credit wallet
-    const walletResult = await pool.query(
+    const walletResult = await db.exec(
       "SELECT usdt_balance FROM wallets WHERE user_id = $1",
       [addressRecord.user_id]
     );
 
     if (walletResult.rows && walletResult.rows.length > 0) {
-      await pool.query(
+      await db.exec(
         "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
         [amount, addressRecord.user_id]
       );
@@ -149,7 +149,7 @@ router.post('/nowpayments', async (req: Request, res: Response) => {
 
     // Log to audit
     try {
-      await pool.query(
+      await db.exec(
         `INSERT INTO audit_logs (action, resource_type, resource_id, details, created_at)
          VALUES ('deposit_confirmed', 'deposit', $1, $2, CURRENT_TIMESTAMP)`,
         [deposit.id, JSON.stringify({

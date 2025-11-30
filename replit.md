@@ -10,7 +10,7 @@ Globance is a production-ready cloud mining and peer-to-peer marketplace platfor
 - Tailwind CSS for styling
 
 ## System Architecture
-The project utilizes a modern web stack with React 18 (Vite, TypeScript, Tailwind CSS) for the frontend and Node.js (Express, TypeScript) for the backend. **Pure PostgreSQL** (Neon-backed via Replit) serves as the database with a dual-database architecture: DATABASE_URL_DEV for development and DATABASE_URL_PROD for production. Authentication is managed via JWT. Radix UI provides a consistent design system for the UI/UX.
+The project utilizes a modern web stack with React 18 (Vite, TypeScript, Tailwind CSS) for the frontend and Node.js (Express, TypeScript) for the backend. **Supabase** (via a service-role client) is the only database layer. All persistence flows through Supabase RPC calls and service-role queries—no DATABASE_URL values or Supabase connection pools are required. Authentication is managed via JWT. Radix UI provides a consistent design system for the UI/UX.
 
 **Key Features:**
 - **Cloud Mining Packages**: 6 tiered packages (10 USDT - 1000 USDT) offering 2.5% - 3.0% daily returns.
@@ -32,7 +32,7 @@ The project utilizes a modern web stack with React 18 (Vite, TypeScript, Tailwin
 The application is configured for Replit Autoscale Deployment, suitable for 24/7 uptime, webhook processing, and reliable cron job execution.
 
 ## External Dependencies
-- **PostgreSQL (Neon)**: Dual-database architecture managed by Replit. DATABASE_URL_DEV for development, DATABASE_URL_PROD for production. No Supabase dependency.
+- **Supabase**: Primary database via service-role client (RPC `execute_sql`).
 - **NOWPayments**: Custody API for automatic USDT deposits (TRC20/BEP20). Payouts disabled as of Nov 22 - withdrawals are now manual via admin panel.
 - **SendGrid**: Transactional email service for automated notifications (registration, password reset, deposit confirmation).
 
@@ -49,17 +49,9 @@ The application is configured for Replit Autoscale Deployment, suitable for 24/7
   - **Admin Withdrawal Approval Fix**: Fixed "Cannot destructure property 'txid'" error when approving withdrawals
     - Frontend now sends proper `Content-Type: application/json` header and JSON body
     - Backend uses optional chaining (`req.body?.txid`) to prevent undefined errors
-  - **PostgreSQL Numeric String Fix**: Applied `parseFloat(String(value)) || 0` pattern across all components
-    - Fixed TypeError on `.toFixed()` calls where PostgreSQL returns numeric values as strings
+  - **Numeric String Parsing Fix**: Applied `parseFloat(String(value)) || 0` pattern across all components to handle numeric responses from RPC queries
     - Components fixed: Home, Wallet, Mining, Referral, Profile, P2P, TradeOffer, TradeOrder, NotificationBell
     - Admin components fixed: WithdrawalAdminManagement, WithdrawalMonitoring, DepositMonitoring, MiningMonitoring, P2POverview, CronMonitoring, AdminOverviewStats
-
-- **Complete PostgreSQL Migration** (Nov 25, 2025): Fully migrated platform to Replit PostgreSQL:
-  - Fixed all P2P trade routes to use correct column names matching database schema
-  - Updated column references: `side` (not `type`), `price_fiat_per_usdt` (not `price_per_usdt`), `remaining_amount_usdt` (not `filled_amount`), `escrow_amount_usdt` (not `escrow_amount`), `fiat_currency_code` (not `fiat_currency`)
-  - Fixed trade creation, cancellation, release, and dispute resolution flows
-  - All routes now use Replit PostgreSQL through `getPostgresPool()`
-  - Admin dashboard fully functional with all management features
 
 - **Production Database Browser** (Nov 25, 2025): Added comprehensive admin database management feature:
   - Browse all production database tables with full CRUD operations
@@ -69,15 +61,6 @@ The application is configured for Replit Autoscale Deployment, suitable for 24/7
   - Multi-layer security: identifier validation against information_schema, comment stripping, dangerous pattern detection
   - Available in Admin Dashboard under "Database" section
   - All modifications logged for audit purposes
-
-- **Complete Supabase Elimination** (Nov 25, 2025): Migrated entire platform to pure PostgreSQL:
-  - Removed @supabase/supabase-js package completely
-  - Converted all backend files to use getPostgresPool() from server/utils/postgres.ts
-  - Dual-database architecture: DATABASE_URL_DEV (development) and DATABASE_URL_PROD (production)
-  - All routes converted: admin.ts, settings.ts, referral.ts, p2p-trades.ts, p2p-admin-stats.ts, payment-providers.ts, p2p-notifications.ts, p2p-cron.ts, seed-test-data.ts
-  - Added complete referral utilities: checkPackageEligibility, getUplineUsers, recordReferralBonus, recordEarningsTransaction
-  - Configured Replit Autoscale Deployment with production environment variables
-  - Server runs without any Supabase dependencies
 
 - **Manual Withdrawal System** (Nov 22, 2025): Replaced automatic NOWPayments payouts with manual admin-controlled withdrawals:
   - Removed all NOWPayments Mass Payout API calls from withdrawal flow

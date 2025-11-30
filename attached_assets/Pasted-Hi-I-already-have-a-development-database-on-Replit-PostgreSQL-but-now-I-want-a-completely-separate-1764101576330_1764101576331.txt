@@ -1,20 +1,20 @@
-Hi, I already have a development database on Replit PostgreSQL, but now I want a completely separate production database, also inside Replit.
+Hi, I already have a development database on Replit Supabase, but now I want a completely separate production database, also inside Replit.
 
 Please do the following:
 
-1️⃣ Create a NEW Production PostgreSQL Database
+1️⃣ Create a NEW Production Supabase Database
 
-I want a dedicated production PostgreSQL database inside Replit.
+I want a dedicated production Supabase database inside Replit.
 
 Please:
 
-Create a new PostgreSQL database instance for production
+Create a new Supabase database instance for production
 
-Provide me with the connection string (DATABASE_URL)
+Provide me with the connection string (SUPABASE_CONNECTION)
 
 Add it to Replit secrets as:
 
-DATABASE_URL_PRODUCTION
+SUPABASE_CONNECTION
 
 2️⃣ Split My Environment Into Two Modes
 
@@ -65,7 +65,7 @@ Make sure every table contains the correct columns so the backend won’t break.
 
 Please update the deployment settings so that:
 
-The live public URL uses DATABASE_URL_PRODUCTION
+The live public URL uses SUPABASE_CONNECTION
 
 The Replit preview mode uses the development DB
 
@@ -127,7 +127,7 @@ Old database
 
 Missing tables
 
-Please convert everything to use Replit PostgreSQL correctly.
+Please convert everything to use Replit Supabase correctly.
 
 7️⃣ Final Delivery
 

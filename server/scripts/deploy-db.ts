@@ -1,1 +1,1 @@
-console.log('Supabase manages database migrations. No PostgreSQL deployment required.');
+console.log("Supabase manages all schema changes. No manual SQL deployment required.");

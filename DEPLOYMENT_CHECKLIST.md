@@ -3,7 +3,7 @@
 **Platform:** Globance Cloud Mining & P2P Trading  
 **Deployment Target:** globance.app  
 **Deployment Type:** Replit Autoscale  
-**Database:** PostgreSQL (Neon) - Dual Database (DEV + PROD)
+**Database:** Supabase (service-role client only)
 
 ---
 
@@ -12,9 +12,10 @@
 ### 1. **Environment Variables (REQUIRED)** ✅
 
 #### **Already Configured:**
-- ✅ `DATABASE_URL` - Production PostgreSQL (Neon)
-- ✅ `DATABASE_URL_DEV` - Development PostgreSQL  
-- ✅ `DATABASE_URL_PROD` - Production PostgreSQL (same as DATABASE_URL)
+- ✅ `SUPABASE_URL` / `VITE_SUPABASE_URL` - Supabase project URL
+- ✅ `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (server-side)
+- ✅ `STAGING_SUPABASE_URL` (optional) - Staging Supabase URL
+- ✅ `STAGING_SUPABASE_SERVICE_ROLE_KEY` (optional) - Staging service role key
 - ✅ `NOWPAYMENTS_API_KEY` - NOWPayments API key
 - ✅ `NOWPAYMENTS_EMAIL` - NOWPayments account email
 - ✅ `NOWPAYMENTS_PASSWORD` - NOWPayments account password
@@ -23,9 +24,6 @@
 - ✅ `SENDGRID_FROM_EMAIL` - Sender email address
 - ✅ `APP_URL` - https://globance.app
 - ✅ `SERVER_BASE_URL` - Backend server URL
-- ✅ `SUPABASE_SERVICE_ROLE_KEY` - Supabase service key
-- ✅ `VITE_SUPABASE_URL` - Supabase project URL
-- ✅ `VITE_SUPABASE_ANON_KEY` - Supabase anonymous key
 - ✅ `SESSION_SECRET` - JWT signing secret
 - ✅ `CRON_SECRET` - Cron job authentication secret
 
@@ -49,22 +47,11 @@ NODE_ENV=production
 
 ### 2. **Database Migration** ✅
 
-**Status:** ✅ **COMPLETED**
+**Status:** ✅ **MANAGED BY SUPABASE**
 
-- ✅ All 21 tables created in production database
-- ✅ Foreign keys configured (23 constraints)
-- ✅ Indexes optimized
-- ✅ Default data seeded:
-  - 6 mining packages (Bronze → Legendary)
-  - 5 fiat currencies (ETB, NGN, KES, GHS, ZAR)
-  - 5 payment providers (Ethiopia)
-  - Settings table with support links
-
-**Migration Commands:**
-```bash
-# Already completed - no action needed
-# Tables synced between DEV and PROD
-```
+- ✅ Schema managed through Supabase SQL Editor and RPC functions
+- ✅ Service-role client (`execute_sql`) powers all CRUD operations
+- ✅ No DATABASE_URL or Supabase pool configuration required
 
 ---
 
@@ -215,7 +202,7 @@ Port: 5000
 
 ### 10. **Performance Optimization** ✅
 
-- ✅ Database connection pooling (pg-pool)
+- ✅ Supabase RPC client for all queries (single connection per request)
 - ✅ Indexed columns (user_id, created_at, status)
 - ✅ Lazy loading on frontend
 - ✅ React Query for caching
@@ -235,17 +222,11 @@ npm run build  # Ensure production build works
 
 ### Step 2: Database Verification
 ```bash
-# Connect to production database
-psql "$DATABASE_URL_PROD"
-
-# Verify tables
-\dt
-
-# Verify packages
-SELECT id, name, min_investment FROM packages;
-
-# Verify admin account
-SELECT email, role FROM users WHERE role = 'admin';
+# Use Supabase SQL editor or RPC console
+# Verify tables exist and data is present
+-- Example checks
+SELECT id, name, min_investment FROM packages LIMIT 5;
+SELECT email, role FROM users WHERE role = 'admin' LIMIT 5;
 ```
 
 ### Step 3: Environment Configuration
@@ -443,7 +424,7 @@ Before clicking "Deploy":
 
 ## 📝 NOTES
 
-- **Database:** Using Neon PostgreSQL (already in production)
+- **Database:** Supabase service-role client (production project configured)
 - **Deployment:** Replit Autoscale (24/7 uptime, auto-scaling)
 - **Domain:** globance.app (configured via APP_URL)
 - **SSL:** Handled by Replit (automatic HTTPS)

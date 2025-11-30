@@ -19,8 +19,8 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getSupabaseQueryClient();
-    const result = await pool.query(
+    const db = getSupabaseQueryClient();
+    const result = await db.exec(
       "SELECT role FROM users WHERE id = $1",
       [decoded.id]
     );
@@ -42,8 +42,8 @@ router.get("/category/:category", async (req: Request, res: Response) => {
   try {
     console.log(`📖 Fetching settings for category: ${req.params.category}`);
     
-    const pool = getSupabaseQueryClient();
-    const result = await pool.query(
+    const db = getSupabaseQueryClient();
+    const result = await db.exec(
       "SELECT id, key, value, category, created_at, updated_at FROM settings WHERE category = $1 ORDER BY key",
       [req.params.category]
     );
@@ -76,7 +76,7 @@ router.post("/bulk-update", adminMiddleware, async (req: any, res: Response) => 
     
     console.log("📋 Parsed settings to update:", settings);
 
-    const pool = getSupabaseQueryClient();
+    const db = getSupabaseQueryClient();
     const updated = [];
     
     for (const setting of settings) {
@@ -84,7 +84,7 @@ router.post("/bulk-update", adminMiddleware, async (req: any, res: Response) => 
       console.log(`   Value: "${setting.value}"`);
       
       try {
-        const result = await pool.query(
+        const result = await db.exec(
           "UPDATE settings SET value = $1, updated_at = NOW() WHERE key = $2 RETURNING *",
           [setting.value, setting.key]
         );
@@ -104,7 +104,7 @@ router.post("/bulk-update", adminMiddleware, async (req: any, res: Response) => 
     console.log(`\n📊 Bulk update complete: ${updated.length}/${settings.length} succeeded`);
 
     // Log to audit
-    await pool.query(
+    await db.exec(
       `INSERT INTO audit_logs (admin_id, action, resource_type, details)
        VALUES ($1, $2, $3, $4)`,
       [req.user.id, "settings_bulk_updated", "setting", JSON.stringify({ count: updated.length, keys: settings.map(s => s.key) })]

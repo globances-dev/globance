@@ -3,7 +3,7 @@ Please check every feature, every page, every API, every database function, and 
 ________________________________________
 🔍 1. DATABASE & CONNECTION TEST
 Please verify:
-•	Database connection (Replit PostgreSQL)
+•	Database connection (Replit Supabase)
 •	All tables exist
 •	Tables have correct columns
 •	No missing columns
