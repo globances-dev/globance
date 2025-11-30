@@ -1,16 +1,7 @@
 [build]
-  command = "pnpm run build"
-  functions = "netlify/functions"
+  command = "pnpm install --no-frozen-lockfile && pnpm run build"
   publish = "dist/spa"
+  functions = "netlify/functions"
 
-[build.environment]
-  VITE_SUPABASE_URL = "https://nybdiogdfyvfklvovylw.supabase.co"
-  ENVIRONMENT = "production"
-  DEBUG_MODE = "false"
-  VITE_PUBLIC_BUILDER_KEY = "__BUILDER_PUBLIC_KEY__"
-
-[[redirects]]
-  force = true
-  from = "/api/*"
-  status = 200
-  to = "/.netlify/functions/api/:splat"
+[functions]
+  node_bundler = "esbuild"
