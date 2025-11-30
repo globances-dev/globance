@@ -3,6 +3,11 @@
 **Date:** November 24, 2025  
 **Status:** All Critical Issues Resolved
 
+## Recent Maintenance
+
+- Removed the obsolete `server/utils/postgres.ts` shim now that all database access flows through Supabase utilities.
+- Dropped stale `pnpm-lock.yaml` and `package-lock.json` to prevent Netlify frozen-lockfile install failures while Supabase dependencies are in use.
+
 ---
 
 ## 🔧 ISSUES FIXED
