@@ -9,7 +9,7 @@ import {
 } from "../utils/crypto";
 import { sendRegistrationEmail, sendPasswordResetEmail } from "../utils/email";
 import { createPermanentDepositAddress } from "../utils/nowpayments";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 
 const router = Router();
 
@@ -194,7 +194,19 @@ router.post("/login", async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    console.error("[Auth] Login error:", error);
+
+    if (error instanceof ZodError) {
+      const fieldErrors = error.errors
+        .map((e) => `${e.path.join(".")}: ${e.message}`)
+        .join(", ");
+
+      return res
+        .status(400)
+        .json({ error: "Validation failed: " + fieldErrors });
+    }
+
+    res.status(500).json({ error: "Login failed. Please try again." });
   }
 });
 
