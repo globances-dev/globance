@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 import { rateLimit } from "../utils/rate-limit";
 import { createP2PNotification, sendP2PEmails } from "../utils/p2p-notifications";
@@ -36,7 +36,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       "SELECT role FROM users WHERE id = $1",
       [decoded.id]
@@ -58,7 +58,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 router.get("/my-trades", authMiddleware, async (req: any, res: Response) => {
   try {
     const { status } = req.query;
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     let query = `
       SELECT t.*, 
@@ -91,7 +91,7 @@ router.get("/my-trades", authMiddleware, async (req: any, res: Response) => {
 // Get single trade
 router.get("/:id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     
     const result = await pool.query(`
       SELECT t.*, 
@@ -131,7 +131,7 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Get offer
     const offerResult = await pool.query(
@@ -263,7 +263,7 @@ router.post("/:id/payment-sent", authMiddleware, async (req: any, res: Response)
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     const tradeResult = await pool.query(
       "SELECT * FROM p2p_trades WHERE id = $1 AND buyer_id = $2 AND status = 'pending'",
@@ -309,7 +309,7 @@ router.post("/:id/payment-sent", authMiddleware, async (req: any, res: Response)
 // Release USDT (seller confirms payment received)
 router.post("/:id/release", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     const tradeResult = await pool.query(
       "SELECT * FROM p2p_trades WHERE id = $1 AND seller_id = $2 AND status = 'payment_sent'",
@@ -364,7 +364,7 @@ router.post("/:id/release", authMiddleware, async (req: any, res: Response) => {
 // Cancel trade (buyer only, before payment sent)
 router.post("/:id/cancel", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     const tradeResult = await pool.query(
       "SELECT * FROM p2p_trades WHERE id = $1 AND buyer_id = $2 AND status = 'pending'",
@@ -432,7 +432,7 @@ router.post("/:id/dispute", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     const tradeResult = await pool.query(
       "SELECT * FROM p2p_trades WHERE id = $1 AND (buyer_id = $2 OR seller_id = $2) AND status = 'payment_sent'",
@@ -484,7 +484,7 @@ router.post("/:id/resolve-dispute", adminMiddleware, async (req: any, res: Respo
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     const tradeResult = await pool.query(
       "SELECT * FROM p2p_trades WHERE id = $1 AND status = 'disputed'",
@@ -558,7 +558,7 @@ router.post("/:id/resolve-dispute", adminMiddleware, async (req: any, res: Respo
 // Get disputed trades (admin only)
 router.get("/admin/disputes", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     
     const result = await pool.query(`
       SELECT t.*, 

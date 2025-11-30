@@ -1,4 +1,4 @@
-import { getPostgresPool } from "./postgres";
+import { getSupabaseQueryClient } from "./supabase";
 
 export const PACKAGES_CONFIG = [
   {
@@ -72,7 +72,7 @@ export async function countActiveDirectReferrals(
   userId: string,
 ): Promise<number> {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     
     const result = await pool.query(`
       SELECT COUNT(DISTINCT p.user_id) as count
@@ -93,7 +93,7 @@ export async function countActiveDirectReferrals(
  */
 export async function getTotalInvestedAmount(userId: string): Promise<number> {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     
     const result = await pool.query(`
       SELECT COALESCE(SUM(amount), 0) as total
@@ -143,7 +143,7 @@ export async function calculateHighestQualifiedRank(
  */
 export async function getUserRankInfo(userId: string): Promise<UserRankInfo> {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     
     const userResult = await pool.query(
       "SELECT current_rank FROM users WHERE id = $1",
@@ -179,7 +179,7 @@ export async function updateUserRank(userId: string): Promise<string> {
   try {
     const highestQualifiedRank = await calculateHighestQualifiedRank(userId);
     
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     await pool.query(
       "UPDATE users SET current_rank = $1 WHERE id = $2",
       [highestQualifiedRank, userId]
@@ -212,7 +212,7 @@ export async function processReferralBonuses(
   purchaseId: string
 ): Promise<void> {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const bonuses = getReferralBonusPercentages();
 
     // Level 1 referrer
@@ -296,7 +296,7 @@ export async function processPurchaseReferralBonus(
   purchaseId: string
 ): Promise<void> {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const bonuses = getReferralBonusPercentages();
 
     // Level 1 referrer
@@ -378,7 +378,7 @@ export async function checkPackageEligibility(
   packageId: string
 ): Promise<{ eligible: boolean; reason?: string }> {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     
     // Get package requirements
     const packageResult = await pool.query(
@@ -437,7 +437,7 @@ export async function getUplineUsers(
   const upline: { level1?: string; level2?: string; level3?: string } = {};
 
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     let currentUserId = userId;
 
     // Level 1
@@ -491,7 +491,7 @@ export async function recordReferralBonus(
   packageId?: string | number
 ): Promise<void> {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     
     await pool.query(
       `INSERT INTO referral_bonus_transactions (user_id, recipient_id, amount, level, bonus_type, package_id, created_at)
@@ -514,7 +514,7 @@ export async function recordEarningsTransaction(
   purchaseId?: string
 ): Promise<void> {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     
     await pool.query(
       `INSERT INTO earnings_transactions (user_id, purchase_id, amount, type, description)

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 
 const router = Router();
@@ -25,7 +25,7 @@ const authMiddleware = async (req: any, res: Response, next: Function) => {
 router.get("/", async (req: Request, res: Response) => {
   try {
     const { side, fiat_currency_code, country, payment_method } = req.query;
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     let query = "SELECT o.*, u.email, u.username FROM offers o LEFT JOIN users u ON o.user_id = u.id WHERE o.is_active = true AND o.remaining_amount_usdt > 0";
     const params: any[] = [];
@@ -73,7 +73,7 @@ router.get("/", async (req: Request, res: Response) => {
 // Get user's own offers
 router.get("/my-offers", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       "SELECT * FROM offers WHERE user_id = $1 ORDER BY created_at DESC",
       [req.user.id]
@@ -88,7 +88,7 @@ router.get("/my-offers", authMiddleware, async (req: any, res: Response) => {
 // Get single offer
 router.get("/:id", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       "SELECT o.*, u.email, u.username FROM offers o LEFT JOIN users u ON o.user_id = u.id WHERE o.id = $1",
       [req.params.id]
@@ -136,7 +136,7 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
         .json({ error: "min_limit_fiat must be less than max_limit_fiat" });
     }
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Validate max limits are consistent with total amount
     const total_fiat = total_amount_usdt * price_fiat_per_usdt;
@@ -254,7 +254,7 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Get current offer
     const currentResult = await pool.query(
@@ -333,7 +333,7 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
 // Delete/cancel offer
 router.delete("/:id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Check if offer has active trades
     const tradesResult = await pool.query(

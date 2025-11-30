@@ -1,4 +1,4 @@
-import { getPostgresPool } from "./postgres";
+import { getSupabaseQueryClient } from "./supabase";
 import { createP2PNotification } from "./p2p-notifications";
 
 /**
@@ -9,7 +9,7 @@ export async function expireOverdueTrades() {
   try {
     console.log("[P2P Cron] Checking for expired trades...");
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Find trades that are pending and past payment_deadline
     const expiredResult = await pool.query(`

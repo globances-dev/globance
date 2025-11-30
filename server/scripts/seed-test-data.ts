@@ -1,10 +1,10 @@
-import { getPostgresPool, getEnvironmentInfo } from '../utils/postgres';
+import { getSupabaseQueryClient, getSupabaseEnvironmentInfo } from '../utils/supabase';
 import { hashPassword, generateReferralCode } from '../utils/crypto';
 import { signToken } from '../utils/jwt';
 
 async function seedTestData() {
-  const pool = getPostgresPool();
-  const envInfo = getEnvironmentInfo();
+  const pool = getSupabaseQueryClient();
+  const envInfo = getSupabaseEnvironmentInfo();
   console.log(`🔗 Connected to ${envInfo.environment} database (${envInfo.database})\n`);
   try {
     console.log('🌱 Seeding test data for staging environment...\n');

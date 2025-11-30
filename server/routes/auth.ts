@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { signToken, verifyToken } from "../utils/jwt";
 import {
   hashPassword,
@@ -33,7 +33,7 @@ router.post("/register", async (req: Request, res: Response) => {
     const data = RegisterSchema.parse(req.body);
     console.log("[Auth] Validation passed for:", data.email);
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Check if user exists
     const existingResult = await pool.query(
@@ -154,7 +154,7 @@ router.post("/login", async (req: Request, res: Response) => {
   try {
     const data = LoginSchema.parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       "SELECT * FROM users WHERE email = $1",
       [data.email]
@@ -223,7 +223,7 @@ router.get("/me", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid token" });
     }
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       "SELECT id, email, username, verified, created_at, referral_code FROM users WHERE id = $1",
       [decoded.id]
@@ -269,7 +269,7 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
   try {
     const { email } = z.object({ email: z.string().email() }).parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const result = await pool.query(
       "SELECT id, email FROM users WHERE email = $1",
       [email]
@@ -331,7 +331,7 @@ router.post("/reset-password", async (req: Request, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Find and validate token
     const tokenResult = await pool.query(

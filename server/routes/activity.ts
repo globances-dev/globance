@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getPostgresPool } from '../utils/postgres';
+import { getSupabaseQueryClient } from '../utils/supabase';
 import { verifyToken } from '../utils/jwt';
 
 const router = Router();
@@ -24,7 +24,7 @@ router.get('/feed', authMiddleware, async (req: any, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit || '20'), 100);
     const activities: any[] = [];
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
 
     // Get deposits
     const depositsResult = await pool.query(
@@ -135,7 +135,7 @@ router.get('/feed', authMiddleware, async (req: any, res: Response) => {
 // Get today's earnings only
 router.get('/today-earnings', authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabaseQueryClient();
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
     const todayISO = today.toISOString();
