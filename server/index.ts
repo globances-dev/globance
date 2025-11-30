@@ -15,10 +15,18 @@ import debugRoutes from "./routes/debug";
 import activityRoutes from "./routes/activity";
 import { initializeScheduler } from "./utils/scheduler";
 import { initializeDatabaseTables } from "./utils/db-init";
+import { getSupabaseClient, getSupabaseEnvironmentInfo } from "./utils/supabase";
 
 export function createServer() {
   console.log("[Server] Creating Express server...");
   const app = express();
+
+  // Initialize Supabase client immediately so routes rely solely on Supabase
+  const supabaseEnv = getSupabaseEnvironmentInfo();
+  getSupabaseClient();
+  console.log(
+    `[Server] Supabase client ready - environment: ${supabaseEnv.environment}, mode: ${supabaseEnv.mode}`
+  );
 
   // Initialize database tables on startup (non-blocking)
   initializeDatabaseTables().catch((error: any) => {

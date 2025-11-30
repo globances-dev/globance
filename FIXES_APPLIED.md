@@ -222,18 +222,18 @@ curl http://localhost:5000/api/settings/category/support
 ## 🚀 PRODUCTION READINESS
 
 ### ✅ Environment Variables (All Configured)
-- `DATABASE_URL` - Production PostgreSQL
+- `SUPABASE_URL` / `VITE_SUPABASE_URL` - Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` - Server-side Supabase key
 - `NOWPAYMENTS_API_KEY` - Payment processing
 - `SENDGRID_API_KEY` - Email notifications
 - `SESSION_SECRET` - JWT signing
 - `CRON_SECRET` - Cron authentication
 - `APP_URL` - https://globance.app
 
-### ✅ Database (Fully Migrated)
-- 21 tables created and verified
-- 23 foreign key constraints
-- Indexes optimized
-- Default data seeded
+### ✅ Database (Fully Managed in Supabase)
+- Schema and indexes managed via Supabase
+- Service-role RPC client handles all CRUD
+- Default data seeded in Supabase project
 
 ### ✅ Integrations (Ready)
 - NOWPayments: Configured

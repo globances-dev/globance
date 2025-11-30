@@ -3,7 +3,7 @@
 **Test Date:** November 24, 2025  
 **Platform:** Globance Cloud Mining & P2P Trading  
 **Test Scope:** Complete A-Z Platform Verification  
-**Database:** PostgreSQL (Neon)  
+**Database:** Supabase (service-role RPC)
 **Environment:** Development (Replit)
 
 ---
@@ -25,7 +25,7 @@
 ### Status: **PASSED** ✅
 
 **Tests Performed:**
-- ✅ Database connection established (PostgreSQL 16.9)
+- ✅ Supabase connection established via service-role client
 - ✅ All 20 tables verified
 - ✅ Foreign key constraints working (23 constraints)
 - ✅ CRUD operations functional
@@ -681,8 +681,8 @@ WHERE email = 'bizuayehuasefa25@gmail.com';
 
 ## 📝 NOTES
 
-- **Database:** Using development database for tests (DATABASE_URL_DEV)
-- **Production DB:** DATABASE_URL_PROD ready and synced
+- **Database:** Using Supabase project for tests (service-role client)
+- **Production DB:** Supabase production project ready and synced
 - **Cron Jobs:** Disabled in development, will run in production
 - **Webhooks:** NOWPayments IPN configured
 - **Email:** SendGrid integration ready

@@ -141,18 +141,17 @@ Look for logs like:
 Check if deposit was recorded:
 
 ```sql
--- Connect to database
-psql "$DATABASE_URL_PROD"
+-- Use Supabase SQL editor to verify records
 
 -- Check recent deposits
-SELECT id, user_id, amount, network, status, created_at 
-FROM deposits 
-ORDER BY created_at DESC 
+SELECT id, user_id, amount, network, status, created_at
+FROM deposits
+ORDER BY created_at DESC
 LIMIT 5;
 
 -- Check wallet balance
-SELECT user_id, usdt_balance 
-FROM wallets 
+SELECT user_id, usdt_balance
+FROM wallets
 WHERE user_id = '<test_user_id>';
 ```
 
