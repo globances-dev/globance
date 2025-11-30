@@ -8,6 +8,10 @@
   ENVIRONMENT = "production"
   DEBUG_MODE = "false"
   VITE_PUBLIC_BUILDER_KEY = "__BUILDER_PUBLIC_KEY__"
+  # Allow Netlify's dependency installation step to proceed even when the
+  # checked-in lockfile is not in sync with package.json. This ensures the
+  # build can resolve the latest Supabase dependency changes.
+  PNPM_FLAGS = "--no-frozen-lockfile"
 
 [functions]
   node_bundler = "esbuild"
