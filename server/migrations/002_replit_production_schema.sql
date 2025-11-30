@@ -1,9 +1,8 @@
 -- ========================================
 -- GLOBANCE - REPLIT POSTGRESQL PRODUCTION SCHEMA
 -- ========================================
--- Complete schema for Replit PostgreSQL (Neon-backed)
--- This migration creates all tables needed for production
--- Run: psql "$DATABASE_URL" -f server/migrations/002_replit_production_schema.sql
+-- Legacy PostgreSQL schema (retained for reference).
+-- Supabase now manages the production database via SQL editor/RPC functions.
 
 -- ========================================
 -- 1. USERS TABLE
