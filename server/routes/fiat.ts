@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 
 const router = Router();
@@ -17,8 +17,8 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
     return res.status(401).json({ error: "Invalid token" });
   }
 
-  const pool = getPostgresPool();
-  const result = await pool.query(
+  const supabase = getSupabaseQueryClient();
+  const result = await supabase.query(
     "SELECT role FROM users WHERE id = $1",
     [decoded.id]
   );
@@ -34,8 +34,8 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 // Get all active fiat currencies (public)
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query(
       "SELECT * FROM fiat_currencies WHERE is_active = true ORDER BY name"
     );
 
@@ -48,8 +48,8 @@ router.get("/", async (req: Request, res: Response) => {
 // Get all fiat currencies including inactive (admin only)
 router.get("/all", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query(
       "SELECT * FROM fiat_currencies ORDER BY name"
     );
 
@@ -62,8 +62,8 @@ router.get("/all", adminMiddleware, async (req: any, res: Response) => {
 // Get single fiat currency
 router.get("/:code", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query(
       "SELECT * FROM fiat_currencies WHERE code = $1",
       [req.params.code.toUpperCase()]
     );
@@ -97,8 +97,8 @@ router.post("/", adminMiddleware, async (req: any, res: Response) => {
         .json({ error: "min_price must be less than max_price" });
     }
 
-    const pool = getPostgresPool();
-    const result = await pool.query(
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query(
       `INSERT INTO fiat_currencies (code, name, min_price, max_price, is_active)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
@@ -112,7 +112,7 @@ router.post("/", adminMiddleware, async (req: any, res: Response) => {
     const currency = result.rows[0];
 
     // Audit log
-    await pool.query(
+    await supabase.query(
       `INSERT INTO audit_logs (admin_id, action, resource_type, details)
        VALUES ($1, $2, $3, $4)`,
       [req.user.id, "fiat_currency_created", "fiat_currency", JSON.stringify({ code, name })]
@@ -139,7 +139,7 @@ router.put("/:code", adminMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
     const updates: any = {};
     if (name !== undefined) updates.name = name;
     if (min_price !== undefined) updates.min_price = min_price;
@@ -148,7 +148,7 @@ router.put("/:code", adminMiddleware, async (req: any, res: Response) => {
 
     // Validate min < max
     if (updates.min_price !== undefined || updates.max_price !== undefined) {
-      const currResult = await pool.query(
+      const currResult = await supabase.query(
         "SELECT min_price, max_price FROM fiat_currencies WHERE code = $1",
         [req.params.code.toUpperCase()]
       );
@@ -171,7 +171,7 @@ router.put("/:code", adminMiddleware, async (req: any, res: Response) => {
       .map((key, i) => `${key} = $${i + 1}`)
       .join(", ");
 
-    const updateResult = await pool.query(
+    const updateResult = await supabase.query(
       `UPDATE fiat_currencies SET ${setClauses} WHERE code = $${Object.keys(updates).length + 1} RETURNING *`,
       [...Object.values(updates), req.params.code.toUpperCase()]
     );
@@ -183,7 +183,7 @@ router.put("/:code", adminMiddleware, async (req: any, res: Response) => {
     const currency = updateResult.rows[0];
 
     // Audit log
-    await pool.query(
+    await supabase.query(
       `INSERT INTO audit_logs (admin_id, action, resource_type, details)
        VALUES ($1, $2, $3, $4)`,
       [req.user.id, "fiat_currency_updated", "fiat_currency", JSON.stringify(updates)]
@@ -201,8 +201,8 @@ router.put("/:code", adminMiddleware, async (req: any, res: Response) => {
 // Delete fiat currency (admin only)
 router.delete("/:code", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query(
       "DELETE FROM fiat_currencies WHERE code = $1 RETURNING *",
       [req.params.code.toUpperCase()]
     );
@@ -214,7 +214,7 @@ router.delete("/:code", adminMiddleware, async (req: any, res: Response) => {
     const currency = result.rows[0];
 
     // Audit log
-    await pool.query(
+    await supabase.query(
       `INSERT INTO audit_logs (admin_id, action, resource_type, details)
        VALUES ($1, $2, $3, $4)`,
       [req.user.id, "fiat_currency_deleted", "fiat_currency", JSON.stringify({ code: currency.code, name: currency.name })]

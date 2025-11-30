@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 import { sendWithdrawalNotificationEmail } from "../utils/email";
 import { z } from "zod";
@@ -24,8 +24,8 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query(
       "SELECT role FROM users WHERE id = $1",
       [decoded.id]
     );
@@ -46,7 +46,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 router.get("/users", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { search, role } = req.query;
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     let query = `
       SELECT u.*, w.usdt_balance 
@@ -72,7 +72,7 @@ router.get("/users", adminMiddleware, async (req: any, res: Response) => {
 
     query += " ORDER BY u.created_at DESC";
 
-    const result = await pool.query(query, params);
+    const result = await supabase.query(query, params);
     res.json({ users: result.rows || [] });
   } catch (error: any) {
     console.error("[Admin] Get users error:", error);
@@ -90,15 +90,15 @@ router.post(
         .object({ is_frozen: z.boolean() })
         .parse(req.body);
 
-      const pool = getPostgresPool();
+      const supabase = getSupabaseQueryClient();
 
-      const result = await pool.query(
+      const result = await supabase.query(
         "UPDATE users SET is_frozen = $1 WHERE id = $2 RETURNING *",
         [is_frozen, req.params.user_id]
       );
 
       // Log to audit
-      await pool.query(
+      await supabase.query(
         `INSERT INTO audit_logs (admin_id, action, resource_type, resource_id)
          VALUES ($1, $2, $3, $4)`,
         [req.user.id, is_frozen ? "account_frozen" : "account_unfrozen", "user", req.params.user_id]
@@ -121,15 +121,15 @@ router.post(
         .object({ role: z.enum(["user", "admin"]) })
         .parse(req.body);
 
-      const pool = getPostgresPool();
+      const supabase = getSupabaseQueryClient();
 
-      const result = await pool.query(
+      const result = await supabase.query(
         "UPDATE users SET role = $1 WHERE id = $2 RETURNING *",
         [role, req.params.user_id]
       );
 
       // Log to audit
-      await pool.query(
+      await supabase.query(
         `INSERT INTO audit_logs (admin_id, action, resource_type, resource_id, details)
          VALUES ($1, $2, $3, $4, $5)`,
         [req.user.id, "role_changed", "user", req.params.user_id, JSON.stringify({ new_role: role })]
@@ -145,23 +145,23 @@ router.post(
 // Get dashboard analytics
 router.get("/analytics", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Total users
-    const usersResult = await pool.query("SELECT COUNT(*) as count FROM users");
+    const usersResult = await supabase.query("SELECT COUNT(*) as count FROM users");
     const totalUsers = parseInt(usersResult.rows[0].count) || 0;
 
     // Active miners (active packages count)
-    const activeMinersResult = await pool.query(
+    const activeMinersResult = await supabase.query(
       "SELECT COUNT(*) as count FROM purchases WHERE status = 'active'"
     );
     const activeMiners = parseInt(activeMinersResult.rows[0].count) || 0;
 
     // Deposits - last 24h and 7d
-    const deposits24hResult = await pool.query(
+    const deposits24hResult = await supabase.query(
       "SELECT COALESCE(SUM(amount), 0) as total FROM deposits WHERE status = 'completed' AND created_at > NOW() - INTERVAL '24 hours'"
     );
-    const deposits7dResult = await pool.query(
+    const deposits7dResult = await supabase.query(
       "SELECT COALESCE(SUM(amount), 0) as total FROM deposits WHERE status = 'completed' AND created_at > NOW() - INTERVAL '7 days'"
     );
     const deposits = {
@@ -170,10 +170,10 @@ router.get("/analytics", adminMiddleware, async (req: any, res: Response) => {
     };
 
     // Withdrawals - last 24h and 7d
-    const withdrawals24hResult = await pool.query(
+    const withdrawals24hResult = await supabase.query(
       "SELECT COALESCE(SUM(amount_usdt), 0) as total FROM withdrawals WHERE status = 'completed' AND created_at > NOW() - INTERVAL '24 hours'"
     );
-    const withdrawals7dResult = await pool.query(
+    const withdrawals7dResult = await supabase.query(
       "SELECT COALESCE(SUM(amount_usdt), 0) as total FROM withdrawals WHERE status = 'completed' AND created_at > NOW() - INTERVAL '7 days'"
     );
     const withdrawals = {
@@ -182,10 +182,10 @@ router.get("/analytics", adminMiddleware, async (req: any, res: Response) => {
     };
 
     // Mining payouts - last 24h and 7d
-    const payouts24hResult = await pool.query(
+    const payouts24hResult = await supabase.query(
       "SELECT COALESCE(SUM(amount), 0) as total FROM earnings_transactions WHERE type = 'daily_mining_income' AND created_at > NOW() - INTERVAL '24 hours'"
     );
-    const payouts7dResult = await pool.query(
+    const payouts7dResult = await supabase.query(
       "SELECT COALESCE(SUM(amount), 0) as total FROM earnings_transactions WHERE type = 'daily_mining_income' AND created_at > NOW() - INTERVAL '7 days'"
     );
     const miningPayouts = {
@@ -194,19 +194,19 @@ router.get("/analytics", adminMiddleware, async (req: any, res: Response) => {
     };
 
     // Referral rewards total
-    const referralResult = await pool.query(
+    const referralResult = await supabase.query(
       "SELECT COALESCE(SUM(amount), 0) as total FROM referral_bonus_transactions"
     );
     const referralRewards = parseFloat(referralResult.rows[0].total) || 0;
 
     // P2P trades stats
-    const activeTradesResult = await pool.query(
+    const activeTradesResult = await supabase.query(
       "SELECT COUNT(*) as count FROM p2p_trades WHERE status IN ('pending', 'paid')"
     );
-    const completedTradesResult = await pool.query(
+    const completedTradesResult = await supabase.query(
       "SELECT COUNT(*) as count FROM p2p_trades WHERE status = 'completed'"
     );
-    const disputedTradesResult = await pool.query(
+    const disputedTradesResult = await supabase.query(
       "SELECT COUNT(*) as count FROM p2p_trades WHERE status = 'disputed'"
     );
     const p2p = {
@@ -234,7 +234,7 @@ router.get("/analytics", adminMiddleware, async (req: any, res: Response) => {
 router.get("/withdrawals", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { status } = req.query;
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     let query = `
       SELECT w.*, u.email, u.username, u.full_name
@@ -250,7 +250,7 @@ router.get("/withdrawals", adminMiddleware, async (req: any, res: Response) => {
 
     query += " ORDER BY w.created_at DESC";
 
-    const result = await pool.query(query, params);
+    const result = await supabase.query(query, params);
     res.json({ withdrawals: result.rows || [] });
   } catch (error: any) {
     console.error("[Admin] Get withdrawals error:", error);
@@ -264,10 +264,10 @@ router.post(
   adminMiddleware,
   async (req: any, res: Response) => {
     try {
-      const pool = getPostgresPool();
+      const supabase = getSupabaseQueryClient();
 
       // Get withdrawal
-      const withdrawalResult = await pool.query(
+      const withdrawalResult = await supabase.query(
         "SELECT * FROM withdrawals WHERE id = $1 AND status = 'pending'",
         [req.params.id]
       );
@@ -279,7 +279,7 @@ router.post(
       const withdrawal = withdrawalResult.rows[0];
 
       // Update withdrawal status - only use columns that exist in production
-      await pool.query(
+      await supabase.query(
         `UPDATE withdrawals 
          SET status = 'completed', updated_at = NOW()
          WHERE id = $1`,
@@ -287,7 +287,7 @@ router.post(
       );
 
       // Log to audit
-      await pool.query(
+      await supabase.query(
         `INSERT INTO audit_logs (admin_id, action, resource_type, resource_id, details)
          VALUES ($1, $2, $3, $4, $5)`,
         [req.user.id, "withdrawal_approved", "withdrawal", req.params.id, JSON.stringify({ withdrawal_id: req.params.id })]
@@ -295,7 +295,7 @@ router.post(
 
       // Send notification email
       try {
-        const userResult = await pool.query("SELECT email FROM users WHERE id = $1", [withdrawal.user_id]);
+        const userResult = await supabase.query("SELECT email FROM users WHERE id = $1", [withdrawal.user_id]);
         if (userResult.rows.length) {
           await sendWithdrawalNotificationEmail(
             userResult.rows[0].email,
@@ -322,10 +322,10 @@ router.post(
   async (req: any, res: Response) => {
     try {
       const reason = req.body?.reason || "Rejected by admin";
-      const pool = getPostgresPool();
+      const supabase = getSupabaseQueryClient();
 
       // Get withdrawal
-      const withdrawalResult = await pool.query(
+      const withdrawalResult = await supabase.query(
         "SELECT * FROM withdrawals WHERE id = $1 AND status = 'pending'",
         [req.params.id]
       );
@@ -337,13 +337,13 @@ router.post(
       const withdrawal = withdrawalResult.rows[0];
 
       // Refund to wallet (full amount including fee)
-      await pool.query(
+      await supabase.query(
         "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
         [withdrawal.amount_usdt, withdrawal.user_id]
       );
 
       // Update withdrawal status
-      await pool.query(
+      await supabase.query(
         `UPDATE withdrawals 
          SET status = 'rejected', admin_notes = $1, processed_at = NOW()
          WHERE id = $2`,
@@ -351,7 +351,7 @@ router.post(
       );
 
       // Log to audit
-      await pool.query(
+      await supabase.query(
         `INSERT INTO audit_logs (admin_id, action, resource_type, resource_id, details)
          VALUES ($1, $2, $3, $4, $5)`,
         [req.user.id, "withdrawal_rejected", "withdrawal", req.params.id, JSON.stringify({ reason })]
@@ -359,7 +359,7 @@ router.post(
 
       // Send notification email
       try {
-        const userResult = await pool.query("SELECT email FROM users WHERE id = $1", [withdrawal.user_id]);
+        const userResult = await supabase.query("SELECT email FROM users WHERE id = $1", [withdrawal.user_id]);
         if (userResult.rows.length) {
           await sendWithdrawalNotificationEmail(
             userResult.rows[0].email,
@@ -383,7 +383,7 @@ router.post(
 router.get("/deposits", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { status } = req.query;
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     let query = `
       SELECT d.*, u.email, u.username, u.full_name
@@ -399,7 +399,7 @@ router.get("/deposits", adminMiddleware, async (req: any, res: Response) => {
 
     query += " ORDER BY d.created_at DESC";
 
-    const result = await pool.query(query, params);
+    const result = await supabase.query(query, params);
     res.json({ deposits: result.rows || [] });
   } catch (error: any) {
     console.error("[Admin] Get deposits error:", error);
@@ -411,7 +411,7 @@ router.get("/deposits", adminMiddleware, async (req: any, res: Response) => {
 router.get("/purchases", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { status } = req.query;
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     let query = `
       SELECT p.*, u.email, u.username, u.full_name, pkg.name as package_name
@@ -428,7 +428,7 @@ router.get("/purchases", adminMiddleware, async (req: any, res: Response) => {
 
     query += " ORDER BY p.created_at DESC";
 
-    const result = await pool.query(query, params);
+    const result = await supabase.query(query, params);
     res.json({ purchases: result.rows || [] });
   } catch (error: any) {
     console.error("[Admin] Get purchases error:", error);
@@ -439,10 +439,10 @@ router.get("/purchases", adminMiddleware, async (req: any, res: Response) => {
 // Get referral stats
 router.get("/referrals", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Top referrers
-    const topReferrersResult = await pool.query(`
+    const topReferrersResult = await supabase.query(`
       SELECT u.id, u.email, u.username, u.full_name, u.current_rank,
              COUNT(r.id) as referral_count,
              COALESCE(SUM(rbt.amount), 0) as total_earned
@@ -456,7 +456,7 @@ router.get("/referrals", adminMiddleware, async (req: any, res: Response) => {
     `);
 
     // Total referral bonuses paid
-    const bonusResult = await pool.query(
+    const bonusResult = await supabase.query(
       "SELECT COALESCE(SUM(amount), 0) as total FROM referral_bonus_transactions"
     );
 
@@ -474,9 +474,9 @@ router.get("/referrals", adminMiddleware, async (req: any, res: Response) => {
 router.get("/audit-logs", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { limit = 100 } = req.query;
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
-    const result = await pool.query(`
+    const result = await supabase.query(`
       SELECT al.*, u.email as admin_email
       FROM audit_logs al
       LEFT JOIN users u ON al.admin_id = u.id
@@ -495,9 +495,9 @@ router.get("/audit-logs", adminMiddleware, async (req: any, res: Response) => {
 router.get("/cron-logs", adminMiddleware, async (req: any, res: Response) => {
   try {
     const { limit = 30 } = req.query;
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
-    const result = await pool.query(`
+    const result = await supabase.query(`
       SELECT * FROM cron_logs
       ORDER BY created_at DESC
       LIMIT $1
@@ -513,8 +513,8 @@ router.get("/cron-logs", adminMiddleware, async (req: any, res: Response) => {
 // Get/update settings
 router.get("/settings", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query("SELECT * FROM settings ORDER BY category, key");
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query("SELECT * FROM settings ORDER BY category, key");
     res.json({ settings: result.rows || [] });
   } catch (error: any) {
     console.error("[Admin] Get settings error:", error);
@@ -532,16 +532,16 @@ router.post("/settings", adminMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
-    await pool.query(`
+    await supabase.query(`
       INSERT INTO settings (category, key, value)
       VALUES ($1, $2, $3)
       ON CONFLICT (category, key) DO UPDATE SET value = $3, updated_at = NOW()
     `, [category, key, value]);
 
     // Log to audit
-    await pool.query(
+    await supabase.query(
       `INSERT INTO audit_logs (admin_id, action, resource_type, details)
        VALUES ($1, $2, $3, $4)`,
       [req.user.id, "setting_updated", "settings", JSON.stringify({ category, key, value })]
@@ -560,10 +560,10 @@ router.put("/packages/:id", adminMiddleware, async (req: any, res: Response) => 
     const { id } = req.params;
     const { name, min_investment, daily_percentage, duration_days, referral_required } = req.body;
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Update package - use correct column names matching database schema
-    await pool.query(`
+    await supabase.query(`
       UPDATE packages 
       SET name = COALESCE($1, name),
           min_investment = COALESCE($2, min_investment),
@@ -574,7 +574,7 @@ router.put("/packages/:id", adminMiddleware, async (req: any, res: Response) => 
     `, [name, min_investment, daily_percentage, duration_days, referral_required, id]);
 
     // Log to audit (skip resource_id since packages use integer IDs, not UUIDs)
-    await pool.query(
+    await supabase.query(
       `INSERT INTO audit_logs (admin_id, action, resource_type, details)
        VALUES ($1, $2, $3, $4)`,
       [req.user.id, "package_updated", "packages", JSON.stringify({ package_id: id, name, min_investment, daily_percentage, duration_days, referral_required })]
@@ -590,10 +590,10 @@ router.put("/packages/:id", adminMiddleware, async (req: any, res: Response) => 
 // Get user details with full info
 router.get("/users/:user_id", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Get user with wallet
-    const userResult = await pool.query(`
+    const userResult = await supabase.query(`
       SELECT u.*, w.usdt_balance, w.escrow_balance, w.total_earned, w.total_referral_earned
       FROM users u
       LEFT JOIN wallets w ON u.id = w.user_id
@@ -607,7 +607,7 @@ router.get("/users/:user_id", adminMiddleware, async (req: any, res: Response) =
     const user = userResult.rows[0];
 
     // Get user's purchases
-    const purchasesResult = await pool.query(`
+    const purchasesResult = await supabase.query(`
       SELECT p.*, pkg.name as package_name
       FROM purchases p
       JOIN packages pkg ON p.package_id = pkg.id
@@ -616,12 +616,12 @@ router.get("/users/:user_id", adminMiddleware, async (req: any, res: Response) =
     `, [req.params.user_id]);
 
     // Get user's deposits
-    const depositsResult = await pool.query(`
+    const depositsResult = await supabase.query(`
       SELECT * FROM deposits WHERE user_id = $1 ORDER BY created_at DESC
     `, [req.params.user_id]);
 
     // Get user's withdrawals
-    const withdrawalsResult = await pool.query(`
+    const withdrawalsResult = await supabase.query(`
       SELECT * FROM withdrawals WHERE user_id = $1 ORDER BY created_at DESC
     `, [req.params.user_id]);
 
@@ -654,10 +654,10 @@ router.post(
         })
         .parse(req.body);
 
-      const pool = getPostgresPool();
+      const supabase = getSupabaseQueryClient();
 
       // Update wallet
-      const result = await pool.query(
+      const result = await supabase.query(
         `UPDATE wallets 
          SET usdt_balance = usdt_balance + $1 
          WHERE user_id = $2
@@ -670,7 +670,7 @@ router.post(
       }
 
       // Log to audit
-      await pool.query(
+      await supabase.query(
         `INSERT INTO audit_logs (admin_id, user_id, action, resource_type, resource_id, details)
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [
@@ -697,11 +697,11 @@ router.post(
 // Manually trigger daily mining cron
 router.post("/trigger-mining-cron", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
     const today = new Date().toISOString().split('T')[0];
 
     // Check if already run today
-    const existingResult = await pool.query(
+    const existingResult = await supabase.query(
       "SELECT id FROM cron_logs WHERE process_type = 'daily_mining' AND process_date = $1",
       [today]
     );
@@ -711,7 +711,7 @@ router.post("/trigger-mining-cron", adminMiddleware, async (req: any, res: Respo
     }
 
     // Get active purchases
-    const purchasesResult = await pool.query(`
+    const purchasesResult = await supabase.query(`
       SELECT p.*, pkg.daily_percentage
       FROM purchases p
       JOIN packages pkg ON p.package_id = pkg.id
@@ -727,26 +727,26 @@ router.post("/trigger-mining-cron", adminMiddleware, async (req: any, res: Respo
         const dailyEarning = parseFloat(purchase.amount) * (parseFloat(purchase.daily_percentage) / 100);
 
         // Credit wallet
-        await pool.query(
+        await supabase.query(
           "UPDATE wallets SET usdt_balance = usdt_balance + $1, total_earned = total_earned + $1 WHERE user_id = $2",
           [dailyEarning, purchase.user_id]
         );
 
         // Update purchase
-        await pool.query(
+        await supabase.query(
           "UPDATE purchases SET total_earned = total_earned + $1, last_reward_date = NOW() WHERE id = $2",
           [dailyEarning, purchase.id]
         );
 
         // Record earnings
-        await pool.query(
+        await supabase.query(
           `INSERT INTO earnings_transactions (user_id, purchase_id, amount, type)
            VALUES ($1, $2, $3, 'daily_mining')`,
           [purchase.user_id, purchase.id, dailyEarning]
         );
 
         // Record mining earning
-        await pool.query(
+        await supabase.query(
           `INSERT INTO mining_earnings (user_id, purchase_id, amount, payout_date)
            VALUES ($1, $2, $3, $4)
            ON CONFLICT (purchase_id, payout_date) DO NOTHING`,
@@ -762,14 +762,14 @@ router.post("/trigger-mining-cron", adminMiddleware, async (req: any, res: Respo
     }
 
     // Log cron execution
-    await pool.query(
+    await supabase.query(
       `INSERT INTO cron_logs (process_type, process_date, purchases_processed, total_distributed, failed_count)
        VALUES ('daily_mining', $1, $2, $3, $4)`,
       [today, processed, totalDistributed, failed]
     );
 
     // Log to audit
-    await pool.query(
+    await supabase.query(
       `INSERT INTO audit_logs (admin_id, action, details)
        VALUES ($1, $2, $3)`,
       [req.user.id, "mining_cron_triggered", JSON.stringify({ processed, totalDistributed, failed })]

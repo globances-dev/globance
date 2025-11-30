@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { signToken, verifyToken } from "../utils/jwt";
 import {
   hashPassword,
@@ -33,10 +33,10 @@ router.post("/register", async (req: Request, res: Response) => {
     const data = RegisterSchema.parse(req.body);
     console.log("[Auth] Validation passed for:", data.email);
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Check if user exists
-    const existingResult = await pool.query(
+    const existingResult = await supabase.query(
       "SELECT id FROM users WHERE email = $1",
       [data.email]
     );
@@ -52,7 +52,7 @@ router.post("/register", async (req: Request, res: Response) => {
     // Check referrer if provided
     let refById: string | null = null;
     if (data.ref_by) {
-      const referrerResult = await pool.query(
+      const referrerResult = await supabase.query(
         "SELECT id FROM users WHERE username = $1",
         [data.ref_by]
       );
@@ -63,7 +63,7 @@ router.post("/register", async (req: Request, res: Response) => {
     }
 
     // Create user with referral code
-    const userResult = await pool.query(
+    const userResult = await supabase.query(
       `INSERT INTO users (email, password_hash, username, verified, referral_code)
        VALUES ($1, $2, $3, false, $4)
        RETURNING id, email, username, referral_code`,
@@ -78,7 +78,7 @@ router.post("/register", async (req: Request, res: Response) => {
     console.log("[Auth] User created:", newUser.id);
 
     // Create wallet
-    await pool.query(
+    await supabase.query(
       `INSERT INTO wallets (user_id, usdt_balance)
        VALUES ($1, 0)`,
       [newUser.id]
@@ -87,7 +87,7 @@ router.post("/register", async (req: Request, res: Response) => {
     // Create permanent deposit addresses for TRC20 and BEP20
     try {
       const trc20Address = await createPermanentDepositAddress(newUser.id, 'TRC20');
-      await pool.query(
+      await supabase.query(
         `INSERT INTO deposit_addresses (user_id, network, address, provider, provider_wallet_id, is_active)
          VALUES ($1, $2, $3, $4, $5, true)`,
         [newUser.id, 'TRC20', trc20Address.address, 'nowpayments', trc20Address.paymentId]
@@ -99,7 +99,7 @@ router.post("/register", async (req: Request, res: Response) => {
 
     try {
       const bep20Address = await createPermanentDepositAddress(newUser.id, 'BEP20');
-      await pool.query(
+      await supabase.query(
         `INSERT INTO deposit_addresses (user_id, network, address, provider, provider_wallet_id, is_active)
          VALUES ($1, $2, $3, $4, $5, true)`,
         [newUser.id, 'BEP20', bep20Address.address, 'nowpayments', bep20Address.paymentId]
@@ -154,8 +154,8 @@ router.post("/login", async (req: Request, res: Response) => {
   try {
     const data = LoginSchema.parse(req.body);
 
-    const pool = getPostgresPool();
-    const result = await pool.query(
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query(
       "SELECT * FROM users WHERE email = $1",
       [data.email]
     );
@@ -223,8 +223,8 @@ router.get("/me", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid token" });
     }
 
-    const pool = getPostgresPool();
-    const result = await pool.query(
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query(
       "SELECT id, email, username, verified, created_at, referral_code FROM users WHERE id = $1",
       [decoded.id]
     );
@@ -240,7 +240,7 @@ router.get("/me", async (req: Request, res: Response) => {
     if (!referralCode) {
       referralCode = generateReferralCode();
       try {
-        await pool.query(
+        await supabase.query(
           "UPDATE users SET referral_code = $1 WHERE id = $2",
           [referralCode, user.id]
         );
@@ -269,8 +269,8 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
   try {
     const { email } = z.object({ email: z.string().email() }).parse(req.body);
 
-    const pool = getPostgresPool();
-    const result = await pool.query(
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query(
       "SELECT id, email FROM users WHERE email = $1",
       [email]
     );
@@ -291,7 +291,7 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
 
     // Store token in database
     try {
-      await pool.query(
+      await supabase.query(
         `INSERT INTO password_reset_tokens (user_id, token, expires_at)
          VALUES ($1, $2, $3)`,
         [user.id, resetToken, expiresAt.toISOString()]
@@ -331,10 +331,10 @@ router.post("/reset-password", async (req: Request, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Find and validate token
-    const tokenResult = await pool.query(
+    const tokenResult = await supabase.query(
       "SELECT user_id, expires_at, used_at FROM password_reset_tokens WHERE token = $1",
       [token]
     );
@@ -359,13 +359,13 @@ router.post("/reset-password", async (req: Request, res: Response) => {
     const passwordHash = await hashPassword(password);
 
     // Update user password
-    await pool.query(
+    await supabase.query(
       "UPDATE users SET password_hash = $1 WHERE id = $2",
       [passwordHash, resetTokenData.user_id]
     );
 
     // Mark token as used
-    await pool.query(
+    await supabase.query(
       "UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE token = $1",
       [token]
     );

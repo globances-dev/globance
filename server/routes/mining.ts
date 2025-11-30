@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 import {
   recordReferralBonus,
@@ -23,10 +23,10 @@ router.post("/process-daily-earnings", async (req: Request, res: Response) => {
 
     const now = new Date();
     const todayDate = now.toISOString().split("T")[0];
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Get latest cron log for this date
-    const cronLogResult = await pool.query(
+    const cronLogResult = await supabase.query(
       "SELECT * FROM cron_logs WHERE DATE(process_date) = $1 AND process_type = 'daily_earnings' ORDER BY process_date DESC LIMIT 1",
       [todayDate]
     );
@@ -54,10 +54,10 @@ router.post("/run-daily-earnings-test", async (req: Request, res: Response) => {
       `[TEST] Manual daily earnings test run at ${now.toISOString()}`,
     );
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Get all active purchases
-    const purchasesResult = await pool.query(
+    const purchasesResult = await supabase.query(
       "SELECT p.*, pkg.daily_percentage FROM purchases p LEFT JOIN packages pkg ON p.package_id = pkg.id WHERE p.status = 'active'"
     );
 
@@ -81,7 +81,7 @@ router.post("/run-daily-earnings-test", async (req: Request, res: Response) => {
         const dailyEarning = (purchase.amount * (purchase.daily_percentage || 0)) / 100;
 
         // Credit to user wallet
-        await pool.query(
+        await supabase.query(
           "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
           [dailyEarning, purchase.user_id]
         );
@@ -90,7 +90,7 @@ router.post("/run-daily-earnings-test", async (req: Request, res: Response) => {
 
         // Record earnings transaction
         try {
-          await pool.query(
+          await supabase.query(
             `INSERT INTO earnings_transactions (user_id, package_id, amount, type, created_at)
              VALUES ($1, $2, $3, 'daily_mining_income', CURRENT_TIMESTAMP)`,
             [purchase.user_id, purchase.package_id, dailyEarning]
@@ -104,7 +104,7 @@ router.post("/run-daily-earnings-test", async (req: Request, res: Response) => {
 
         if (upline.level1) {
           const level1Commission = (dailyEarning * 10) / 100;
-          await pool.query(
+          await supabase.query(
             "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
             [level1Commission, upline.level1]
           );
@@ -123,7 +123,7 @@ router.post("/run-daily-earnings-test", async (req: Request, res: Response) => {
 
         if (upline.level2) {
           const level2Commission = (dailyEarning * 3) / 100;
-          await pool.query(
+          await supabase.query(
             "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
             [level2Commission, upline.level2]
           );
@@ -142,7 +142,7 @@ router.post("/run-daily-earnings-test", async (req: Request, res: Response) => {
 
         if (upline.level3) {
           const level3Commission = (dailyEarning * 2) / 100;
-          await pool.query(
+          await supabase.query(
             "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
             [level3Commission, upline.level3]
           );
@@ -203,10 +203,10 @@ router.get("/my-packages", async (req: any, res: Response) => {
 
     console.log(`[MINING] Fetching packages for user: ${userId}`);
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Get all active purchases for this user with package details
-    const result = await pool.query(
+    const result = await supabase.query(
       `SELECT p.id, p.user_id, p.package_id, p.amount, p.status, p.created_at,
               pkg.name, pkg.daily_percentage, pkg.duration_days
        FROM purchases p
@@ -262,12 +262,12 @@ router.get("/my-packages", async (req: any, res: Response) => {
 router.get("/daily-earnings/:userId", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Get today's earnings
     const todayDate = new Date().toISOString().split("T")[0];
 
-    const result = await pool.query(
+    const result = await supabase.query(
       `SELECT SUM(amount) as total_earned FROM earnings_transactions 
        WHERE user_id = $1 AND DATE(created_at) = $2`,
       [userId, todayDate]

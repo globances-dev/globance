@@ -1,10 +1,10 @@
-import { getPostgresPool, getEnvironmentInfo } from '../utils/postgres';
+import { getSupabaseQueryClient, getSupabaseEnvironmentInfo } from '../utils/supabase';
 import { hashPassword, generateReferralCode } from '../utils/crypto';
 import { signToken } from '../utils/jwt';
 
 async function seedTestData() {
-  const pool = getPostgresPool();
-  const envInfo = getEnvironmentInfo();
+  const supabase = getSupabaseQueryClient();
+  const envInfo = getSupabaseEnvironmentInfo();
   console.log(`🔗 Connected to ${envInfo.environment} database (${envInfo.database})\n`);
   try {
     console.log('🌱 Seeding test data for staging environment...\n');
@@ -21,7 +21,7 @@ async function seedTestData() {
     };
 
     // Create User A
-    const userAResult = await pool.query(`
+    const userAResult = await supabase.query(`
       INSERT INTO users (email, password_hash, username, verified, referral_code, role)
       VALUES ($1, $2, $3, true, $4, $5)
       ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
@@ -41,7 +41,7 @@ async function seedTestData() {
       ref_by: createdUserA.id,
     };
 
-    const userBResult = await pool.query(`
+    const userBResult = await supabase.query(`
       INSERT INTO users (email, password_hash, username, verified, referral_code, role, referred_by)
       VALUES ($1, $2, $3, true, $4, $5, $6)
       ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
@@ -61,7 +61,7 @@ async function seedTestData() {
       ref_by: createdUserB.id,
     };
 
-    const userCResult = await pool.query(`
+    const userCResult = await supabase.query(`
       INSERT INTO users (email, password_hash, username, verified, referral_code, role, referred_by)
       VALUES ($1, $2, $3, true, $4, $5, $6)
       ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
@@ -75,7 +75,7 @@ async function seedTestData() {
     console.log('💰 Creating wallets...');
 
     for (const user of [createdUserA, createdUserB, createdUserC]) {
-      await pool.query(`
+      await supabase.query(`
         INSERT INTO wallets (user_id, usdt_balance)
         VALUES ($1, 0)
         ON CONFLICT (user_id) DO NOTHING
@@ -95,7 +95,7 @@ async function seedTestData() {
       ref_code: generateReferralCode(),
     };
 
-    const adminResult = await pool.query(`
+    const adminResult = await supabase.query(`
       INSERT INTO users (email, password_hash, username, verified, referral_code, role)
       VALUES ($1, $2, $3, true, $4, $5)
       ON CONFLICT (email) DO UPDATE SET role = 'admin'
@@ -105,7 +105,7 @@ async function seedTestData() {
     const createdAdmin = adminResult.rows[0];
 
     // Create admin wallet
-    await pool.query(`
+    await supabase.query(`
       INSERT INTO wallets (user_id, usdt_balance)
       VALUES ($1, 0)
       ON CONFLICT (user_id) DO NOTHING
@@ -126,7 +126,7 @@ async function seedTestData() {
     ];
 
     for (const addr of addresses) {
-      await pool.query(`
+      await supabase.query(`
         INSERT INTO deposit_addresses (user_id, network, address, provider)
         VALUES ($1, $2, $3, 'mock_test')
         ON CONFLICT DO NOTHING

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getPostgresPool } from '../utils/postgres';
+import { getSupabaseQueryClient } from '../utils/supabase';
 import { verifyToken } from '../utils/jwt';
 
 const router = Router();
@@ -24,10 +24,10 @@ router.get('/feed', authMiddleware, async (req: any, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit || '20'), 100);
     const activities: any[] = [];
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Get deposits
-    const depositsResult = await pool.query(
+    const depositsResult = await supabase.query(
       'SELECT * FROM deposits WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2',
       [req.user.id, limit]
     );
@@ -47,7 +47,7 @@ router.get('/feed', authMiddleware, async (req: any, res: Response) => {
     });
 
     // Get withdrawals
-    const withdrawalsResult = await pool.query(
+    const withdrawalsResult = await supabase.query(
       'SELECT * FROM withdrawals WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2',
       [req.user.id, limit]
     );
@@ -66,7 +66,7 @@ router.get('/feed', authMiddleware, async (req: any, res: Response) => {
     });
 
     // Get package purchases
-    const purchasesResult = await pool.query(
+    const purchasesResult = await supabase.query(
       `SELECT p.*, pkg.name FROM purchases p
        LEFT JOIN packages pkg ON p.package_id = pkg.id
        WHERE p.user_id = $1 ORDER BY p.created_at DESC LIMIT $2`,
@@ -86,7 +86,7 @@ router.get('/feed', authMiddleware, async (req: any, res: Response) => {
     });
 
     // Get mining earnings transactions
-    const earningsResult = await pool.query(
+    const earningsResult = await supabase.query(
       `SELECT * FROM earnings_transactions WHERE user_id = $1 AND type = 'daily_mining_income' AND amount > 0
        ORDER BY created_at DESC LIMIT $2`,
       [req.user.id, limit]
@@ -104,7 +104,7 @@ router.get('/feed', authMiddleware, async (req: any, res: Response) => {
     });
 
     // Get referral bonuses
-    const referralsResult = await pool.query(
+    const referralsResult = await supabase.query(
       `SELECT * FROM referral_bonus_transactions WHERE recipient_id = $1
        ORDER BY created_at DESC LIMIT $2`,
       [req.user.id, limit]
@@ -135,13 +135,13 @@ router.get('/feed', authMiddleware, async (req: any, res: Response) => {
 // Get today's earnings only
 router.get('/today-earnings', authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
     const todayISO = today.toISOString();
 
     // Get mining earnings for today
-    const earningsResult = await pool.query(
+    const earningsResult = await supabase.query(
       `SELECT COALESCE(SUM(amount), 0) as total FROM earnings_transactions
        WHERE user_id = $1 AND created_at >= $2 AND type = 'daily_mining_income'`,
       [req.user.id, todayISO]
@@ -150,7 +150,7 @@ router.get('/today-earnings', authMiddleware, async (req: any, res: Response) =>
     const miningTotal = parseFloat(earningsResult.rows[0].total || 0);
 
     // Get referral earnings for today
-    const referralsResult = await pool.query(
+    const referralsResult = await supabase.query(
       `SELECT COALESCE(SUM(amount), 0) as total FROM referral_bonus_transactions
        WHERE recipient_id = $1 AND created_at >= $2`,
       [req.user.id, todayISO]

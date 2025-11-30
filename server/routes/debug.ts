@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getPostgresPool } from '../utils/postgres';
+import { getSupabaseQueryClient } from '../utils/supabase';
 import crypto from 'crypto';
 import { hashPassword, generateReferralCode } from '../utils/crypto';
 
@@ -32,10 +32,10 @@ router.post('/mock-deposit', async (req: Request, res: Response) => {
 
     logDebug('INFO', `Mock deposit initiated: ${amount} ${currency} on ${network}`, { user_id, amount, network, tx_id });
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Get user
-    const userResult = await pool.query(
+    const userResult = await supabase.query(
       'SELECT id, email FROM users WHERE id = $1',
       [user_id]
     );
@@ -47,7 +47,7 @@ router.post('/mock-deposit', async (req: Request, res: Response) => {
     const user = userResult.rows[0];
 
     // Create deposit record
-    const depositResult = await pool.query(
+    const depositResult = await supabase.query(
       `INSERT INTO deposits (user_id, network, amount, txid, provider, provider_event_id, status, confirmed_at)
        VALUES ($1, $2, $3, $4, $5, $6, 'confirmed', CURRENT_TIMESTAMP)
        RETURNING *`,
@@ -62,14 +62,14 @@ router.post('/mock-deposit', async (req: Request, res: Response) => {
     const deposit = depositResult.rows[0];
 
     // Update wallet
-    const walletResult = await pool.query(
+    const walletResult = await supabase.query(
       'SELECT usdt_balance FROM wallets WHERE user_id = $1',
       [user_id]
     );
 
     if (walletResult.rows && walletResult.rows.length > 0) {
       const wallet = walletResult.rows[0];
-      await pool.query(
+      await supabase.query(
         'UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2',
         [amount, user_id]
       );
@@ -78,7 +78,7 @@ router.post('/mock-deposit', async (req: Request, res: Response) => {
     }
 
     // Log to audit
-    await pool.query(
+    await supabase.query(
       `INSERT INTO audit_logs (admin_id, action, resource_type, resource_id, details)
        VALUES ($1, $2, $3, $4, $5)`,
       [user_id, 'mock_deposit_created', 'deposit', deposit.id, JSON.stringify({ amount, network, tx_id })]
@@ -116,10 +116,10 @@ router.post('/mock-withdrawal', async (req: Request, res: Response) => {
 
     logDebug('INFO', `Mock withdrawal initiated: ${amount} ${network}`, { user_id, address });
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Get user
-    const userResult = await pool.query(
+    const userResult = await supabase.query(
       'SELECT id, email FROM users WHERE id = $1',
       [user_id]
     );
@@ -131,7 +131,7 @@ router.post('/mock-withdrawal', async (req: Request, res: Response) => {
     const user = userResult.rows[0];
 
     // Check balance
-    const walletResult = await pool.query(
+    const walletResult = await supabase.query(
       'SELECT usdt_balance FROM wallets WHERE user_id = $1',
       [user_id]
     );
@@ -144,7 +144,7 @@ router.post('/mock-withdrawal', async (req: Request, res: Response) => {
     const wallet = walletResult.rows[0];
 
     // Create withdrawal request
-    const withdrawalResult = await pool.query(
+    const withdrawalResult = await supabase.query(
       `INSERT INTO withdrawals (user_id, amount_usdt, fee_usdt, net_amount_usdt, address, network, status)
        VALUES ($1, $2, 1, $3, $4, $5, 'pending')
        RETURNING *`,
@@ -158,7 +158,7 @@ router.post('/mock-withdrawal', async (req: Request, res: Response) => {
     const withdrawal = withdrawalResult.rows[0];
 
     // Deduct from wallet
-    await pool.query(
+    await supabase.query(
       'UPDATE wallets SET usdt_balance = usdt_balance - $1 WHERE user_id = $2',
       [amount, user_id]
     );
@@ -197,17 +197,17 @@ router.post('/mock-webhook', async (req: Request, res: Response) => {
       return res.json({ success: true });
     }
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Find deposit address
-    const addressResult = await pool.query(
+    const addressResult = await supabase.query(
       'SELECT user_id FROM deposit_addresses WHERE address = $1',
       [address]
     );
 
     if (!addressResult.rows || addressResult.rows.length === 0) {
       // Check if this is a mock test address
-      const userResult = await pool.query(
+      const userResult = await supabase.query(
         'SELECT id, email FROM users LIMIT 1'
       );
 
@@ -218,14 +218,14 @@ router.post('/mock-webhook', async (req: Request, res: Response) => {
       const user = userResult.rows[0];
 
       // For testing, credit to first user
-      await pool.query(
+      await supabase.query(
         `INSERT INTO deposits (user_id, amount, txid, network, provider, provider_event_id, status, confirmed_at)
          VALUES ($1, $2, $3, $4, 'mock_test', $5, 'confirmed', CURRENT_TIMESTAMP)`,
         [user.id, pay_amount, `mock_${payment_id}`, network, `mock_${payment_id}`]
       );
 
       // Update wallet
-      await pool.query(
+      await supabase.query(
         'UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2',
         [pay_amount, user.id]
       );
@@ -237,7 +237,7 @@ router.post('/mock-webhook', async (req: Request, res: Response) => {
     const addressRecord = addressResult.rows[0];
 
     // Check for duplicate
-    const dupResult = await pool.query(
+    const dupResult = await supabase.query(
       'SELECT id FROM deposits WHERE provider_event_id = $1',
       [`mock_${payment_id}`]
     );
@@ -248,14 +248,14 @@ router.post('/mock-webhook', async (req: Request, res: Response) => {
     }
 
     // Create deposit
-    await pool.query(
+    await supabase.query(
       `INSERT INTO deposits (user_id, amount, txid, network, provider, provider_event_id, status, confirmed_at)
        VALUES ($1, $2, $3, $4, 'mock_test', $5, 'confirmed', CURRENT_TIMESTAMP)`,
       [addressRecord.user_id, pay_amount, `mock_${payment_id}`, network, `mock_${payment_id}`]
     );
 
     // Update wallet
-    await pool.query(
+    await supabase.query(
       'UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2',
       [pay_amount, addressRecord.user_id]
     );
@@ -291,11 +291,11 @@ router.post('/test-registration', async (req: Request, res: Response) => {
 
     logDebug('INFO', 'Test registration started', { email, full_name });
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Step 1: Check if email exists
     logDebug('INFO', 'Step 1: Checking if email exists');
-    const existingResult = await pool.query(
+    const existingResult = await supabase.query(
       'SELECT id FROM users WHERE email = $1',
       [email]
     );
@@ -318,7 +318,7 @@ router.post('/test-registration', async (req: Request, res: Response) => {
 
     // Step 4: Create user
     logDebug('INFO', 'Step 4: Creating user in database');
-    const userResult = await pool.query(
+    const userResult = await supabase.query(
       `INSERT INTO users (email, password_hash, username, verified)
        VALUES ($1, $2, $3, false)
        RETURNING id, email, username`,
@@ -335,7 +335,7 @@ router.post('/test-registration', async (req: Request, res: Response) => {
 
     // Step 5: Create wallet
     logDebug('INFO', 'Step 5: Creating wallet');
-    await pool.query(
+    await supabase.query(
       `INSERT INTO wallets (user_id, usdt_balance)
        VALUES ($1, 0)`,
       [newUser.id]
@@ -364,11 +364,11 @@ router.post('/test-registration', async (req: Request, res: Response) => {
 // ============================================================
 router.get('/health', async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
-    const userResult = await pool.query('SELECT COUNT(*) as count FROM users');
-    const depositResult = await pool.query('SELECT COUNT(*) as count FROM deposits');
-    const purchaseResult = await pool.query('SELECT COUNT(*) as count FROM purchases');
+    const userResult = await supabase.query('SELECT COUNT(*) as count FROM users');
+    const depositResult = await supabase.query('SELECT COUNT(*) as count FROM deposits');
+    const purchaseResult = await supabase.query('SELECT COUNT(*) as count FROM purchases');
 
     res.json({
       status: 'healthy',

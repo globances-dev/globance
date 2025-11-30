@@ -1,4 +1,4 @@
-import { getPostgresPool } from './postgres';
+import { getSupabaseQueryClient } from './supabase';
 import { sendEmail } from './email';
 
 export async function createP2PNotification(
@@ -9,10 +9,10 @@ export async function createP2PNotification(
   data?: any
 ): Promise<void> {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
     
     // Create activity/notification entry
-    await pool.query(`
+    await supabase.query(`
       INSERT INTO earnings_transactions (user_id, amount, type, description)
       VALUES ($1, 0, $2, $3)
     `, [userId, `p2p_${type}`, message]);

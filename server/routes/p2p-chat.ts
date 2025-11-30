@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 
 const router = Router();
@@ -24,10 +24,10 @@ const authMiddleware = async (req: any, res: Response, next: Function) => {
 // Get chat messages for a trade
 router.get("/:trade_id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Verify user is participant in trade
-    const tradeResult = await pool.query(
+    const tradeResult = await supabase.query(
       "SELECT buyer_id, seller_id FROM trades WHERE id = $1",
       [req.params.trade_id]
     );
@@ -41,7 +41,7 @@ router.get("/:trade_id", authMiddleware, async (req: any, res: Response) => {
       return res.status(403).json({ error: "Access denied" });
     }
 
-    const messagesResult = await pool.query(
+    const messagesResult = await supabase.query(
       `SELECT m.*, u.id as sender_id, u.email, u.username FROM p2p_chat_messages m
        LEFT JOIN users u ON m.sender_id = u.id
        WHERE m.trade_id = $1
@@ -68,10 +68,10 @@ router.post("/:trade_id", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Verify user is participant
-    const tradeResult = await pool.query(
+    const tradeResult = await supabase.query(
       "SELECT buyer_id, seller_id FROM trades WHERE id = $1",
       [req.params.trade_id]
     );
@@ -86,7 +86,7 @@ router.post("/:trade_id", authMiddleware, async (req: any, res: Response) => {
     }
 
     // Insert message
-    const insertResult = await pool.query(
+    const insertResult = await supabase.query(
       `INSERT INTO p2p_chat_messages (trade_id, sender_id, message, attachment_url, created_at)
        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
        RETURNING *`,

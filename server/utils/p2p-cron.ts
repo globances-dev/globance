@@ -1,4 +1,4 @@
-import { getPostgresPool } from "./postgres";
+import { getSupabaseQueryClient } from "./supabase";
 import { createP2PNotification } from "./p2p-notifications";
 
 /**
@@ -9,10 +9,10 @@ export async function expireOverdueTrades() {
   try {
     console.log("[P2P Cron] Checking for expired trades...");
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Find trades that are pending and past payment_deadline
-    const expiredResult = await pool.query(`
+    const expiredResult = await supabase.query(`
       SELECT * FROM p2p_trades 
       WHERE status = 'pending' AND payment_deadline < NOW()
     `);
@@ -30,21 +30,21 @@ export async function expireOverdueTrades() {
       try {
         // Release escrow back to seller
         if (parseFloat(trade.escrow_amount || 0) > 0) {
-          await pool.query(
+          await supabase.query(
             "UPDATE wallets SET escrow_balance = escrow_balance - $1 WHERE user_id = $2",
             [trade.escrow_amount, trade.seller_id]
           );
         }
 
         // Return amount to offer
-        await pool.query(`
+        await supabase.query(`
           UPDATE p2p_offers 
           SET filled_amount = COALESCE(filled_amount, 0) - $1, is_active = true
           WHERE id = $2
         `, [trade.amount_usdt, trade.offer_id]);
 
         // Update trade status
-        await pool.query(
+        await supabase.query(
           "UPDATE p2p_trades SET status = 'expired', updated_at = NOW() WHERE id = $1",
           [trade.id]
         );

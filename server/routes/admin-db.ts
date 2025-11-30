@@ -1,42 +1,19 @@
 import { Router, Response } from "express";
-import { Pool } from "pg";
 import { verifyToken } from "../utils/jwt";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 
 const router = Router();
 
-let productionPool: Pool | null = null;
 let validTablesCache: Set<string> | null = null;
 let tableColumnsCache: Map<string, Set<string>> = new Map();
 
-function getProductionPool(): Pool {
-  if (productionPool) return productionPool;
-
-  const databaseUrl = process.env.DATABASE_URL_PROD;
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL_PROD not configured");
-  }
-
-  productionPool = new Pool({
-    connectionString: databaseUrl,
-    ssl: { rejectUnauthorized: false },
-  });
-
-  productionPool.on("error", (err) => {
-    console.error("[AdminDB] Production pool error:", err);
-    productionPool = null;
-    validTablesCache = null;
-    tableColumnsCache.clear();
-  });
-
-  return productionPool;
-}
+const adminDbClient = getSupabaseQueryClient();
 
 async function getValidTables(): Promise<Set<string>> {
   if (validTablesCache) return validTablesCache;
   
-  const pool = getProductionPool();
-  const result = await pool.query(`
+  const supabase = adminDbClient;
+  const result = await supabase.query(`
     SELECT table_name FROM information_schema.tables 
     WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
   `);
@@ -50,8 +27,8 @@ async function getValidColumns(tableName: string): Promise<Set<string>> {
     return tableColumnsCache.get(tableName)!;
   }
   
-  const pool = getProductionPool();
-  const result = await pool.query(`
+  const supabase = adminDbClient;
+  const result = await supabase.query(`
     SELECT column_name FROM information_schema.columns 
     WHERE table_schema = 'public' AND table_name = $1
   `, [tableName]);
@@ -89,8 +66,8 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query("SELECT role FROM users WHERE id = $1", [
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query("SELECT role FROM users WHERE id = $1", [
       decoded.id,
     ]);
 
@@ -108,9 +85,9 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 
 router.get("/tables", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getProductionPool();
+    const supabase = adminDbClient;
 
-    const result = await pool.query(`
+    const result = await supabase.query(`
       SELECT 
         table_name,
         (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = t.table_name AND table_schema = 'public') as column_count
@@ -122,7 +99,7 @@ router.get("/tables", adminMiddleware, async (req: any, res: Response) => {
     const tablesWithCounts = await Promise.all(
       result.rows.map(async (table) => {
         try {
-          const countResult = await pool.query(
+          const countResult = await supabase.query(
             `SELECT COUNT(*) as count FROM "${table.table_name}"`
           );
           return {
@@ -158,9 +135,9 @@ router.get(
         return res.status(400).json({ error: "Invalid table name" });
       }
       
-      const pool = getProductionPool();
+      const supabase = adminDbClient;
 
-      const result = await pool.query(
+      const result = await supabase.query(
         `
       SELECT 
         column_name,
@@ -175,7 +152,7 @@ router.get(
         [tableName]
       );
 
-      const pkResult = await pool.query(
+      const pkResult = await supabase.query(
         `
       SELECT a.attname as column_name
       FROM pg_index i
@@ -217,7 +194,7 @@ router.get(
         return res.status(400).json({ error: "Invalid table name" });
       }
 
-      const pool = getProductionPool();
+      const supabase = adminDbClient;
       const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
 
       let query = `SELECT * FROM "${tableName}"`;
@@ -234,11 +211,11 @@ router.get(
 
       query += ` LIMIT $1 OFFSET $2`;
 
-      const result = await pool.query(query, [
+      const result = await supabase.query(query, [
         parseInt(limit as string),
         offset,
       ]);
-      const countResult = await pool.query(
+      const countResult = await supabase.query(
         `SELECT COUNT(*) as count FROM "${tableName}"`
       );
 
@@ -285,7 +262,7 @@ router.put(
         }
       }
 
-      const pool = getProductionPool();
+      const supabase = adminDbClient;
 
       const setClauses: string[] = [];
       const values: any[] = [];
@@ -306,7 +283,7 @@ router.put(
       RETURNING *
     `;
 
-      const result = await pool.query(query, values);
+      const result = await supabase.query(query, values);
 
       if (result.rows.length === 0) {
         return res.status(404).json({ error: "Row not found" });
@@ -343,9 +320,9 @@ router.delete(
         return res.status(400).json({ error: "Invalid primary key column" });
       }
 
-      const pool = getProductionPool();
+      const supabase = adminDbClient;
 
-      const result = await pool.query(
+      const result = await supabase.query(
         `DELETE FROM "${tableName}" WHERE "${primaryKey}" = $1 RETURNING *`,
         [primaryKeyValue]
       );
@@ -422,16 +399,16 @@ router.post(
         }
       }
 
-      const pool = getProductionPool();
-      const result = await pool.query(sql);
+      const supabase = adminDbClient;
+      const result = await supabase.query(sql);
 
       console.log(`[AdminDB] Custom query executed by admin ${req.user.id}: ${sql.substring(0, 100)}`);
 
       res.json({
         success: true,
         rows: result.rows,
-        rowCount: result.rowCount,
-        command: result.command,
+        rowCount: result.rows.length,
+        command: 'execute_sql',
       });
     } catch (error: any) {
       console.error("[AdminDB] Query error:", error);

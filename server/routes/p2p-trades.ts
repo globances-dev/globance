@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 import { rateLimit } from "../utils/rate-limit";
 import { createP2PNotification, sendP2PEmails } from "../utils/p2p-notifications";
@@ -36,8 +36,8 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query(
       "SELECT role FROM users WHERE id = $1",
       [decoded.id]
     );
@@ -58,7 +58,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 router.get("/my-trades", authMiddleware, async (req: any, res: Response) => {
   try {
     const { status } = req.query;
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     let query = `
       SELECT t.*, 
@@ -80,7 +80,7 @@ router.get("/my-trades", authMiddleware, async (req: any, res: Response) => {
 
     query += " ORDER BY t.created_at DESC";
 
-    const result = await pool.query(query, params);
+    const result = await supabase.query(query, params);
     res.json({ trades: result.rows || [] });
   } catch (error: any) {
     console.error("[P2P Trades] Get my trades error:", error);
@@ -91,9 +91,9 @@ router.get("/my-trades", authMiddleware, async (req: any, res: Response) => {
 // Get single trade
 router.get("/:id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
     
-    const result = await pool.query(`
+    const result = await supabase.query(`
       SELECT t.*, 
              o.side as offer_type, o.price_fiat_per_usdt as offer_price, o.payment_method_ids as payment_methods,
              b.email as buyer_email, b.username as buyer_name,
@@ -131,10 +131,10 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Get offer
-    const offerResult = await pool.query(
+    const offerResult = await supabase.query(
       "SELECT * FROM p2p_offers WHERE id = $1 AND is_active = true",
       [offer_id]
     );
@@ -171,7 +171,7 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
     const seller_id = isBuyOffer ? req.user.id : offer.user_id;
 
     // Verify buyer payment method
-    const buyerMethodResult = await pool.query(
+    const buyerMethodResult = await supabase.query(
       "SELECT * FROM user_payment_methods WHERE id = $1 AND user_id = $2 AND fiat_currency_code = $3",
       [buyer_payment_method_id, buyer_id, offer.fiat_currency_code]
     );
@@ -184,7 +184,7 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
 
     // For SELL offers, check seller has enough free USDT and lock in escrow
     if (!isBuyOffer) {
-      const walletResult = await pool.query(
+      const walletResult = await supabase.query(
         "SELECT usdt_balance, escrow_balance FROM wallets WHERE user_id = $1",
         [seller_id]
       );
@@ -199,7 +199,7 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
       }
 
       // Lock funds in escrow
-      await pool.query(
+      await supabase.query(
         "UPDATE wallets SET escrow_balance = escrow_balance + $1 WHERE user_id = $2",
         [amount_usdt, seller_id]
       );
@@ -209,7 +209,7 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
     const payment_deadline = new Date();
     payment_deadline.setMinutes(payment_deadline.getMinutes() + 30);
 
-    const tradeResult = await pool.query(`
+    const tradeResult = await supabase.query(`
       INSERT INTO p2p_trades (offer_id, buyer_id, seller_id, amount_usdt, price_fiat_per_usdt, 
                               total_fiat, fiat_currency_code, status, 
                               escrow_amount_usdt, payment_deadline)
@@ -222,7 +222,7 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
     const trade = tradeResult.rows[0];
 
     // Update offer remaining amount
-    await pool.query(`
+    await supabase.query(`
       UPDATE p2p_offers 
       SET remaining_amount_usdt = remaining_amount_usdt - $1,
           is_active = (remaining_amount_usdt - $1) > 0,
@@ -263,9 +263,9 @@ router.post("/:id/payment-sent", authMiddleware, async (req: any, res: Response)
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
-    const tradeResult = await pool.query(
+    const tradeResult = await supabase.query(
       "SELECT * FROM p2p_trades WHERE id = $1 AND buyer_id = $2 AND status = 'pending'",
       [req.params.id, req.user.id]
     );
@@ -280,7 +280,7 @@ router.post("/:id/payment-sent", authMiddleware, async (req: any, res: Response)
       return res.status(400).json({ error: "Payment deadline has passed" });
     }
 
-    const result = await pool.query(`
+    const result = await supabase.query(`
       UPDATE p2p_trades 
       SET status = 'payment_sent', updated_at = NOW()
       WHERE id = $1
@@ -309,9 +309,9 @@ router.post("/:id/payment-sent", authMiddleware, async (req: any, res: Response)
 // Release USDT (seller confirms payment received)
 router.post("/:id/release", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
-    const tradeResult = await pool.query(
+    const tradeResult = await supabase.query(
       "SELECT * FROM p2p_trades WHERE id = $1 AND seller_id = $2 AND status = 'payment_sent'",
       [req.params.id, req.user.id]
     );
@@ -325,19 +325,19 @@ router.post("/:id/release", authMiddleware, async (req: any, res: Response) => {
     const trade = tradeResult.rows[0];
 
     // Release from seller escrow
-    await pool.query(
+    await supabase.query(
       "UPDATE wallets SET escrow_balance = escrow_balance - $1 WHERE user_id = $2",
       [trade.escrow_amount_usdt, trade.seller_id]
     );
 
     // Add to buyer balance
-    await pool.query(
+    await supabase.query(
       "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
       [trade.amount_usdt, trade.buyer_id]
     );
 
     // Update trade status
-    const result = await pool.query(`
+    const result = await supabase.query(`
       UPDATE p2p_trades 
       SET status = 'completed', completed_at = NOW(), updated_at = NOW()
       WHERE id = $1
@@ -364,9 +364,9 @@ router.post("/:id/release", authMiddleware, async (req: any, res: Response) => {
 // Cancel trade (buyer only, before payment sent)
 router.post("/:id/cancel", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
-    const tradeResult = await pool.query(
+    const tradeResult = await supabase.query(
       "SELECT * FROM p2p_trades WHERE id = $1 AND buyer_id = $2 AND status = 'pending'",
       [req.params.id, req.user.id]
     );
@@ -381,21 +381,21 @@ router.post("/:id/cancel", authMiddleware, async (req: any, res: Response) => {
 
     // Release escrow back to seller
     if (parseFloat(trade.escrow_amount_usdt || 0) > 0) {
-      await pool.query(
+      await supabase.query(
         "UPDATE wallets SET escrow_balance = escrow_balance - $1 WHERE user_id = $2",
         [trade.escrow_amount_usdt, trade.seller_id]
       );
     }
 
     // Return amount to offer
-    await pool.query(`
+    await supabase.query(`
       UPDATE p2p_offers 
       SET remaining_amount_usdt = remaining_amount_usdt + $1, is_active = true, updated_at = NOW()
       WHERE id = $2
     `, [trade.amount_usdt, trade.offer_id]);
 
     // Update trade
-    const result = await pool.query(`
+    const result = await supabase.query(`
       UPDATE p2p_trades 
       SET status = 'cancelled', updated_at = NOW()
       WHERE id = $1
@@ -432,9 +432,9 @@ router.post("/:id/dispute", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
-    const tradeResult = await pool.query(
+    const tradeResult = await supabase.query(
       "SELECT * FROM p2p_trades WHERE id = $1 AND (buyer_id = $2 OR seller_id = $2) AND status = 'payment_sent'",
       [req.params.id, req.user.id]
     );
@@ -447,7 +447,7 @@ router.post("/:id/dispute", authMiddleware, async (req: any, res: Response) => {
 
     const trade = tradeResult.rows[0];
 
-    const result = await pool.query(`
+    const result = await supabase.query(`
       UPDATE p2p_trades 
       SET status = 'disputed', dispute_reason = $1, updated_at = NOW()
       WHERE id = $2
@@ -484,9 +484,9 @@ router.post("/:id/resolve-dispute", adminMiddleware, async (req: any, res: Respo
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
-    const tradeResult = await pool.query(
+    const tradeResult = await supabase.query(
       "SELECT * FROM p2p_trades WHERE id = $1 AND status = 'disputed'",
       [req.params.id]
     );
@@ -501,24 +501,24 @@ router.post("/:id/resolve-dispute", adminMiddleware, async (req: any, res: Respo
     // Handle funds based on resolution
     if (resolution === "buyer") {
       // Release to buyer
-      await pool.query(
+      await supabase.query(
         "UPDATE wallets SET escrow_balance = escrow_balance - $1 WHERE user_id = $2",
         [trade.escrow_amount_usdt, trade.seller_id]
       );
-      await pool.query(
+      await supabase.query(
         "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
         [trade.amount_usdt, trade.buyer_id]
       );
     } else {
       // Return to seller
-      await pool.query(
+      await supabase.query(
         "UPDATE wallets SET escrow_balance = escrow_balance - $1, usdt_balance = usdt_balance + $1 WHERE user_id = $2",
         [trade.escrow_amount_usdt, trade.seller_id]
       );
     }
 
     // Update trade
-    const result = await pool.query(`
+    const result = await supabase.query(`
       UPDATE p2p_trades 
       SET status = $1, dispute_resolved_by = $2, dispute_resolution = $3, 
           completed_at = NOW(), updated_at = NOW()
@@ -527,7 +527,7 @@ router.post("/:id/resolve-dispute", adminMiddleware, async (req: any, res: Respo
     `, [newStatus, req.user.id, notes || `Resolved in favor of ${resolution}`, req.params.id]);
 
     // Audit log
-    await pool.query(`
+    await supabase.query(`
       INSERT INTO audit_logs (admin_id, action, resource_type, resource_id, details)
       VALUES ($1, $2, $3, $4, $5)
     `, [req.user.id, "p2p_dispute_resolved", "trade", trade.id, JSON.stringify({ resolution, notes })]);
@@ -558,9 +558,9 @@ router.post("/:id/resolve-dispute", adminMiddleware, async (req: any, res: Respo
 // Get disputed trades (admin only)
 router.get("/admin/disputes", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
     
-    const result = await pool.query(`
+    const result = await supabase.query(`
       SELECT t.*, 
              o.side as offer_type, o.price_fiat_per_usdt as offer_price,
              b.email as buyer_email, b.username as buyer_name,

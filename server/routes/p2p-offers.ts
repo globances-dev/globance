@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 
 const router = Router();
@@ -25,7 +25,7 @@ const authMiddleware = async (req: any, res: Response, next: Function) => {
 router.get("/", async (req: Request, res: Response) => {
   try {
     const { side, fiat_currency_code, country, payment_method } = req.query;
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     let query = "SELECT o.*, u.email, u.username FROM offers o LEFT JOIN users u ON o.user_id = u.id WHERE o.is_active = true AND o.remaining_amount_usdt > 0";
     const params: any[] = [];
@@ -47,13 +47,13 @@ router.get("/", async (req: Request, res: Response) => {
 
     query += " ORDER BY o.price_fiat_per_usdt " + (side === "buy" ? "ASC" : "DESC");
 
-    const result = await pool.query(query, params);
+    const result = await supabase.query(query, params);
     const offers = result.rows || [];
 
     // Filter by payment method if specified
     let filteredOffers = offers;
     if (payment_method && typeof payment_method === "string") {
-      const methodResult = await pool.query(
+      const methodResult = await supabase.query(
         "SELECT id FROM user_payment_methods WHERE provider_name ILIKE $1",
         [`%${payment_method}%`]
       );
@@ -73,8 +73,8 @@ router.get("/", async (req: Request, res: Response) => {
 // Get user's own offers
 router.get("/my-offers", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query(
       "SELECT * FROM offers WHERE user_id = $1 ORDER BY created_at DESC",
       [req.user.id]
     );
@@ -88,8 +88,8 @@ router.get("/my-offers", authMiddleware, async (req: any, res: Response) => {
 // Get single offer
 router.get("/:id", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query(
       "SELECT o.*, u.email, u.username FROM offers o LEFT JOIN users u ON o.user_id = u.id WHERE o.id = $1",
       [req.params.id]
     );
@@ -136,7 +136,7 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
         .json({ error: "min_limit_fiat must be less than max_limit_fiat" });
     }
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Validate max limits are consistent with total amount
     const total_fiat = total_amount_usdt * price_fiat_per_usdt;
@@ -147,7 +147,7 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
     }
 
     // Get fiat currency and validate price range
-    const currencyResult = await pool.query(
+    const currencyResult = await supabase.query(
       "SELECT * FROM fiat_currencies WHERE code = $1 AND is_active = true",
       [fiat_currency_code]
     );
@@ -171,7 +171,7 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
     }
 
     // Verify all payment methods belong to user
-    const methodsResult = await pool.query(
+    const methodsResult = await supabase.query(
       "SELECT id, fiat_currency_code FROM user_payment_methods WHERE user_id = $1 AND is_active = true",
       [req.user.id]
     );
@@ -197,7 +197,7 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
 
     // For SELL offers, check user has enough free USDT
     if (side === "sell") {
-      const walletResult = await pool.query(
+      const walletResult = await supabase.query(
         "SELECT usdt_balance, escrow_balance FROM wallets WHERE user_id = $1",
         [req.user.id]
       );
@@ -215,7 +215,7 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
     }
 
     // Create offer
-    const insertResult = await pool.query(
+    const insertResult = await supabase.query(
       `INSERT INTO offers (user_id, side, total_amount_usdt, remaining_amount_usdt, price_fiat_per_usdt, fiat_currency_code, country, min_limit_fiat, max_limit_fiat, payment_method_ids, is_active, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, CURRENT_TIMESTAMP)
        RETURNING *`,
@@ -254,10 +254,10 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Get current offer
-    const currentResult = await pool.query(
+    const currentResult = await supabase.query(
       "SELECT * FROM offers WHERE id = $1 AND user_id = $2",
       [req.params.id, req.user.id]
     );
@@ -271,7 +271,7 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
 
     // Validate and set price if changed
     if (price_fiat_per_usdt !== undefined) {
-      const currencyResult = await pool.query(
+      const currencyResult = await supabase.query(
         "SELECT min_price, max_price FROM fiat_currencies WHERE code = $1",
         [currentOffer.fiat_currency_code]
       );
@@ -312,7 +312,7 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
     }
 
     const setClause = updateCols.map((col, idx) => `${col} = $${idx + 1}`).join(", ");
-    const updateResult = await pool.query(
+    const updateResult = await supabase.query(
       `UPDATE offers SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = $${updateCols.length + 1} RETURNING *`,
       [...Object.values(updates), req.params.id]
     );
@@ -333,10 +333,10 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
 // Delete/cancel offer
 router.delete("/:id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Check if offer has active trades
-    const tradesResult = await pool.query(
+    const tradesResult = await supabase.query(
       "SELECT id FROM trades WHERE offer_id = $1 AND status IN ('pending', 'payment_sent', 'disputed')",
       [req.params.id]
     );
@@ -347,7 +347,7 @@ router.delete("/:id", authMiddleware, async (req: any, res: Response) => {
       });
     }
 
-    const deleteResult = await pool.query(
+    const deleteResult = await supabase.query(
       "UPDATE offers SET is_active = false WHERE id = $1 AND user_id = $2 RETURNING *",
       [req.params.id, req.user.id]
     );

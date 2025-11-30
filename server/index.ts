@@ -14,14 +14,14 @@ import settingsRoutes from "./routes/settings";
 import debugRoutes from "./routes/debug";
 import activityRoutes from "./routes/activity";
 import { initializeScheduler } from "./utils/scheduler";
-import { initializeDatabaseTables } from "./utils/db-init";
+import { initializeDatabase } from "./utils/db-init";
 
 export function createServer() {
   console.log("[Server] Creating Express server...");
   const app = express();
 
   // Initialize database tables on startup (non-blocking)
-  initializeDatabaseTables().catch((error: any) => {
+  initializeDatabase().catch((error: any) => {
     console.error("[Server] Database initialization error:", error.message);
   });
 

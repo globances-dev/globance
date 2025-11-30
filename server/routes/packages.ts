@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabaseQueryClient } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 import { z } from "zod";
 import {
@@ -60,8 +60,8 @@ const authMiddleware = (req: any, res: Response, next: Function) => {
 // Get all packages
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query(
       "SELECT * FROM packages ORDER BY id"
     );
 
@@ -76,8 +76,8 @@ router.get("/", async (req: Request, res: Response) => {
 // Get package details
 router.get("/:id", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
-    const result = await pool.query(
+    const supabase = getSupabaseQueryClient();
+    const result = await supabase.query(
       "SELECT * FROM packages WHERE id = $1",
       [req.params.id]
     );
@@ -131,7 +131,7 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
       return res.status(400).json({ error: `Minimum investment is ${pkgConfig.min_invest} USDT` });
     }
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Check referral requirements for non-Bronze packages
     if (pkgConfig.referral_required > 0) {
@@ -145,7 +145,7 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
     }
 
     // Get user wallet
-    const walletResult = await pool.query(
+    const walletResult = await supabase.query(
       "SELECT usdt_balance FROM wallets WHERE user_id = $1",
       [req.user.id]
     );
@@ -168,14 +168,14 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
     ).toISOString();
 
     // Determine referral_id (fallback to the buyer if no sponsor)
-    const referralResult = await pool.query(
+    const referralResult = await supabase.query(
       "SELECT referred_by FROM users WHERE id = $1",
       [req.user.id]
     );
     const referralId = referralResult.rows?.[0]?.referred_by || req.user.id;
 
     // Check if purchases table has referral_id column to avoid errors across schemas
-    const referralColumnResult = await pool.query(
+    const referralColumnResult = await supabase.query(
       "SELECT 1 FROM information_schema.columns WHERE table_name = 'purchases' AND column_name = 'referral_id'"
     );
     const hasReferralColumn = referralColumnResult.rows?.length > 0;
@@ -192,7 +192,7 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
 
     console.log(`[BUY_PACKAGE] Database package ID: ${dbPackageId} (from configId: ${configId})`);
 
-    const packageExistsResult = await pool.query(
+    const packageExistsResult = await supabase.query(
       "SELECT id FROM packages WHERE id = $1",
       [dbPackageId]
     );
@@ -206,7 +206,7 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
     try {
       console.log("Mapped:", { package_id, configId, dbPackageId, referralId });
 
-      const insertResult = await pool.query(
+      const insertResult = await supabase.query(
         hasReferralColumn
           ? `INSERT INTO purchases (user_id, package_id, amount, status, referral_id, created_at)
              VALUES ($1, $2, $3, 'active', $4, CURRENT_TIMESTAMP)
@@ -233,7 +233,7 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
 
     // Deduct from wallet
     console.log("[BUY_PACKAGE] Deducting from wallet:", investmentAmount);
-    await pool.query(
+    await supabase.query(
       "UPDATE wallets SET usdt_balance = usdt_balance - $1 WHERE user_id = $2",
       [investmentAmount, req.user.id]
     );
@@ -244,13 +244,13 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
 
     if (upline.level1) {
       const level1Bonus = (investmentAmount * 10) / 100;
-      const level1Result = await pool.query(
+      const level1Result = await supabase.query(
         "SELECT usdt_balance FROM wallets WHERE user_id = $1",
         [upline.level1]
       );
 
       if (level1Result.rows && level1Result.rows.length > 0) {
-        await pool.query(
+        await supabase.query(
           "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
           [level1Bonus, upline.level1]
         );
@@ -268,13 +268,13 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
 
     if (upline.level2) {
       const level2Bonus = (investmentAmount * 3) / 100;
-      const level2Result = await pool.query(
+      const level2Result = await supabase.query(
         "SELECT usdt_balance FROM wallets WHERE user_id = $1",
         [upline.level2]
       );
 
       if (level2Result.rows && level2Result.rows.length > 0) {
-        await pool.query(
+        await supabase.query(
           "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
           [level2Bonus, upline.level2]
         );
@@ -292,13 +292,13 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
 
     if (upline.level3) {
       const level3Bonus = (investmentAmount * 2) / 100;
-      const level3Result = await pool.query(
+      const level3Result = await supabase.query(
         "SELECT usdt_balance FROM wallets WHERE user_id = $1",
         [upline.level3]
       );
 
       if (level3Result.rows && level3Result.rows.length > 0) {
-        await pool.query(
+        await supabase.query(
           "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
           [level3Bonus, upline.level3]
         );
@@ -339,8 +339,8 @@ router.get(
   authMiddleware,
   async (req: any, res: Response) => {
     try {
-      const pool = getPostgresPool();
-      const result = await pool.query(
+      const supabase = getSupabaseQueryClient();
+      const result = await supabase.query(
         `SELECT p.*, pkg.name, pkg.daily_percentage FROM purchases p
          LEFT JOIN packages pkg ON p.package_id = pkg.id
          WHERE p.user_id = $1 AND p.status = 'active'

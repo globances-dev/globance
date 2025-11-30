@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import type { ScheduledTask } from "node-cron";
-import { getPostgresPool, getEnvironmentInfo } from "./postgres";
+import { getSupabaseQueryClient, getSupabaseEnvironmentInfo } from "./supabase";
 import {
   recordReferralBonus,
   recordEarningsTransaction,
@@ -24,10 +24,10 @@ async function processDailyEarningsInternal() {
       `[INTERNAL-CRON] ⏰ Starting daily earnings processing at ${now.toISOString()}`
     );
 
-    const pool = getPostgresPool();
+    const supabase = getSupabaseQueryClient();
 
     // Check if already processed today (idempotency)
-    const cronLogResult = await pool.query(
+    const cronLogResult = await supabase.query(
       "SELECT * FROM cron_logs WHERE DATE(process_date) = $1 AND process_type = 'daily_earnings'",
       [todayDate]
     );
@@ -38,7 +38,7 @@ async function processDailyEarningsInternal() {
     }
 
     // Get all active purchases
-    const purchasesResult = await pool.query(
+    const purchasesResult = await supabase.query(
       "SELECT p.*, pkg.daily_percentage FROM purchases p LEFT JOIN packages pkg ON p.package_id = pkg.id WHERE p.status = 'active'"
     );
 
@@ -48,7 +48,7 @@ async function processDailyEarningsInternal() {
       console.log("[INTERNAL-CRON] No active purchases found");
 
       // Log the cron run
-      await pool.query(
+      await supabase.query(
         `INSERT INTO cron_logs (process_type, process_date, purchases_processed, total_distributed)
          VALUES ('daily_earnings', $1, 0, 0)`,
         [now.toISOString()]
@@ -66,7 +66,7 @@ async function processDailyEarningsInternal() {
         const dailyEarning = (purchase.amount * (purchase.daily_percentage || 0)) / 100;
 
         // Credit to user wallet
-        await pool.query(
+        await supabase.query(
           "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
           [dailyEarning, purchase.user_id]
         );
@@ -78,7 +78,7 @@ async function processDailyEarningsInternal() {
           `[INTERNAL-CRON] Recording transaction for user ${purchase.user_id}: ${dailyEarning} USDT`
         );
         try {
-          await pool.query(
+          await supabase.query(
             `INSERT INTO earnings_transactions (user_id, package_id, amount, type, created_at)
              VALUES ($1, $2, $3, 'daily_mining_income', CURRENT_TIMESTAMP)`,
             [purchase.user_id, purchase.package_id, dailyEarning]
@@ -92,7 +92,7 @@ async function processDailyEarningsInternal() {
 
         if (upline.level1) {
           const level1Commission = (dailyEarning * 10) / 100;
-          await pool.query(
+          await supabase.query(
             "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
             [level1Commission, upline.level1]
           );
@@ -111,7 +111,7 @@ async function processDailyEarningsInternal() {
 
         if (upline.level2) {
           const level2Commission = (dailyEarning * 3) / 100;
-          await pool.query(
+          await supabase.query(
             "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
             [level2Commission, upline.level2]
           );
@@ -130,7 +130,7 @@ async function processDailyEarningsInternal() {
 
         if (upline.level3) {
           const level3Commission = (dailyEarning * 2) / 100;
-          await pool.query(
+          await supabase.query(
             "UPDATE wallets SET usdt_balance = usdt_balance + $1 WHERE user_id = $2",
             [level3Commission, upline.level3]
           );
@@ -166,7 +166,7 @@ async function processDailyEarningsInternal() {
     );
 
     // Log the cron run
-    await pool.query(
+    await supabase.query(
       `INSERT INTO cron_logs (process_type, process_date, purchases_processed, total_distributed, failed_count)
        VALUES ('daily_earnings', $1, $2, $3, $4)`,
       [now.toISOString(), processed, totalDistributed, failedPurchases.length]
@@ -184,7 +184,7 @@ async function processDailyEarningsInternal() {
  * No external API calls needed - runs internally on Replit
  */
 export function initializeScheduler() {
-  const env = getEnvironmentInfo();
+  const env = getSupabaseEnvironmentInfo();
   console.log(`[Scheduler] 🚀 Initializing internal scheduler (${env.mode})...`);
   
   const isProduction = process.env.ENVIRONMENT === 'production' || process.env.NODE_ENV === 'production';
@@ -197,7 +197,7 @@ export function initializeScheduler() {
   }
 
   console.log("[Scheduler] ⏰ Mining cron: 21:00 UTC daily (0 21 * * *)");
-  console.log("[Scheduler] 🚀 Running in PRODUCTION - database: DATABASE_URL_PROD");
+  console.log("[Scheduler] 🚀 Running in PRODUCTION - Supabase managed database");
 
   // Schedule mining earnings at 21:00 UTC every day (PRODUCTION ONLY)
   scheduledJob = cron.schedule("0 21 * * *", async () => {
@@ -208,7 +208,7 @@ export function initializeScheduler() {
     console.log("=".repeat(60) + "\n");
   });
 
-  console.log("[Scheduler] ✅ Internal cron scheduler ACTIVE (production database)");
+  console.log("[Scheduler] ✅ Internal cron scheduler ACTIVE (Supabase database)");
   console.log("[Scheduler] ✓ Scheduler ready");
 
   return scheduledJob;
