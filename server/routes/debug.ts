@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getPostgresPool } from '../utils/postgres';
+import { getSupabasePool } from '../utils/supabase';
 import crypto from 'crypto';
 import { hashPassword, generateReferralCode } from '../utils/crypto';
 
@@ -32,7 +32,7 @@ router.post('/mock-deposit', async (req: Request, res: Response) => {
 
     logDebug('INFO', `Mock deposit initiated: ${amount} ${currency} on ${network}`, { user_id, amount, network, tx_id });
 
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     // Get user
     const userResult = await pool.query(
@@ -116,7 +116,7 @@ router.post('/mock-withdrawal', async (req: Request, res: Response) => {
 
     logDebug('INFO', `Mock withdrawal initiated: ${amount} ${network}`, { user_id, address });
 
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     // Get user
     const userResult = await pool.query(
@@ -197,7 +197,7 @@ router.post('/mock-webhook', async (req: Request, res: Response) => {
       return res.json({ success: true });
     }
 
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     // Find deposit address
     const addressResult = await pool.query(
@@ -291,7 +291,7 @@ router.post('/test-registration', async (req: Request, res: Response) => {
 
     logDebug('INFO', 'Test registration started', { email, full_name });
 
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     // Step 1: Check if email exists
     logDebug('INFO', 'Step 1: Checking if email exists');
@@ -364,7 +364,7 @@ router.post('/test-registration', async (req: Request, res: Response) => {
 // ============================================================
 router.get('/health', async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     const userResult = await pool.query('SELECT COUNT(*) as count FROM users');
     const depositResult = await pool.query('SELECT COUNT(*) as count FROM deposits');

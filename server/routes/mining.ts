@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabasePool } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 import {
   recordReferralBonus,
@@ -19,7 +19,7 @@ router.post("/process-daily-earnings", async (req: Request, res: Response) => {
 
     const now = new Date();
     const todayDate = now.toISOString().split("T")[0];
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     // Check if already processed today (idempotency check)
     const cronLogResult = await pool.query(
@@ -65,7 +65,7 @@ router.post("/run-daily-earnings-test", async (req: Request, res: Response) => {
       `[TEST] Manual daily earnings test run at ${now.toISOString()}`,
     );
 
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     // Get all active purchases
     const purchasesResult = await pool.query(
@@ -218,7 +218,7 @@ router.get("/my-packages", async (req: any, res: Response) => {
 
     console.log(`[MINING] Fetching packages for user: ${userId}`);
 
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     // Get all active purchases for this user with package details
     const result = await pool.query(
@@ -280,7 +280,7 @@ router.get("/my-packages", async (req: any, res: Response) => {
 router.get("/daily-earnings/:userId", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     // Get today's earnings
     const todayDate = new Date().toISOString().split("T")[0];

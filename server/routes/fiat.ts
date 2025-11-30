@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabasePool } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 
 const router = Router();
@@ -17,7 +17,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
     return res.status(401).json({ error: "Invalid token" });
   }
 
-  const pool = getPostgresPool();
+  const pool = getSupabasePool();
   const result = await pool.query(
     "SELECT role FROM users WHERE id = $1",
     [decoded.id]
@@ -34,7 +34,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 // Get all active fiat currencies (public)
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const result = await pool.query(
       "SELECT * FROM fiat_currencies WHERE is_active = true ORDER BY name"
     );
@@ -48,7 +48,7 @@ router.get("/", async (req: Request, res: Response) => {
 // Get all fiat currencies including inactive (admin only)
 router.get("/all", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const result = await pool.query(
       "SELECT * FROM fiat_currencies ORDER BY name"
     );
@@ -62,7 +62,7 @@ router.get("/all", adminMiddleware, async (req: any, res: Response) => {
 // Get single fiat currency
 router.get("/:code", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const result = await pool.query(
       "SELECT * FROM fiat_currencies WHERE code = $1",
       [req.params.code.toUpperCase()]
@@ -97,7 +97,7 @@ router.post("/", adminMiddleware, async (req: any, res: Response) => {
         .json({ error: "min_price must be less than max_price" });
     }
 
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const result = await pool.query(
       `INSERT INTO fiat_currencies (code, name, min_price, max_price, is_active)
        VALUES ($1, $2, $3, $4, $5)
@@ -139,7 +139,7 @@ router.put("/:code", adminMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const updates: any = {};
     if (name !== undefined) updates.name = name;
     if (min_price !== undefined) updates.min_price = min_price;
@@ -201,7 +201,7 @@ router.put("/:code", adminMiddleware, async (req: any, res: Response) => {
 // Delete fiat currency (admin only)
 router.delete("/:code", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const result = await pool.query(
       "DELETE FROM fiat_currencies WHERE code = $1 RETURNING *",
       [req.params.code.toUpperCase()]

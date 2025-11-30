@@ -13,8 +13,8 @@
 
 #### **Already Configured:**
 - ✅ `DATABASE_URL` - Production PostgreSQL (Neon)
-- ✅ `DATABASE_URL_DEV` - Development PostgreSQL  
-- ✅ `DATABASE_URL_PROD` - Production PostgreSQL (same as DATABASE_URL)
+- ✅ `legacy development database variable (deprecated)` - Development PostgreSQL  
+- ✅ `legacy production database variable (deprecated)` - Production PostgreSQL (same as DATABASE_URL)
 - ✅ `NOWPAYMENTS_API_KEY` - NOWPayments API key
 - ✅ `NOWPAYMENTS_EMAIL` - NOWPayments account email
 - ✅ `NOWPAYMENTS_PASSWORD` - NOWPayments account password
@@ -236,7 +236,7 @@ npm run build  # Ensure production build works
 ### Step 2: Database Verification
 ```bash
 # Connect to production database
-psql "$DATABASE_URL_PROD"
+psql "$legacy production database variable (deprecated)"
 
 # Verify tables
 \dt

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabasePool } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 import { z } from "zod";
 import {
@@ -36,7 +36,7 @@ const authMiddleware = (req: any, res: Response, next: Function) => {
 // ======================
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const result = await pool.query("SELECT * FROM packages ORDER BY id");
 
     res.json({ packages: result.rows || [] });
@@ -50,7 +50,7 @@ router.get("/", async (req: Request, res: Response) => {
 // ======================
 router.get("/:id", async (req: Request, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const result = await pool.query(
       "SELECT * FROM packages WHERE id = $1",
       [req.params.id]
@@ -96,7 +96,7 @@ router.post("/buy", authMiddleware, async (req: any, res: Response) => {
       });
     }
 
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     // Wallet balance check
     const walletResult = await pool.query(
@@ -221,7 +221,7 @@ router.get(
   authMiddleware,
   async (req: any, res: Response) => {
     try {
-      const pool = getPostgresPool();
+      const pool = getSupabasePool();
       const result = await pool.query(
         `SELECT p.*, pkg.name, pkg.daily_percent 
          FROM purchases p

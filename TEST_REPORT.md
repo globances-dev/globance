@@ -681,8 +681,8 @@ WHERE email = 'bizuayehuasefa25@gmail.com';
 
 ## 📝 NOTES
 
-- **Database:** Using development database for tests (DATABASE_URL_DEV)
-- **Production DB:** DATABASE_URL_PROD ready and synced
+- **Database:** Using development database for tests (legacy development database variable (deprecated))
+- **Production DB:** legacy production database variable (deprecated) ready and synced
 - **Cron Jobs:** Disabled in development, will run in production
 - **Webhooks:** NOWPayments IPN configured
 - **Email:** SendGrid integration ready

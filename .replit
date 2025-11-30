@@ -38,8 +38,8 @@ build = ["npm", "run", "build"]
 
 [userenv.shared]
 CRON_SECRET = "globance-cron-secret-2024-production"
-DATABASE_URL_DEV = "postgresql://neondb_owner:npg_zmb6uewogP0R@ep-withered-glade-af08hjn7.c-2.us-west-2.aws.neon.tech:5432/neondb?sslmode=require"
-DATABASE_URL_PROD = "postgresql://neondb_owner:npg_zmb6uewogP0R@ep-withered-glade-af08hjn7.c-2.us-west-2.aws.neon.tech:5432/globance_prod?sslmode=require"
+legacy development database variable (deprecated) = "postgresql://neondb_owner:npg_zmb6uewogP0R@ep-withered-glade-af08hjn7.c-2.us-west-2.aws.neon.tech:5432/neondb?sslmode=require"
+legacy production database variable (deprecated) = "postgresql://neondb_owner:npg_zmb6uewogP0R@ep-withered-glade-af08hjn7.c-2.us-west-2.aws.neon.tech:5432/globance_prod?sslmode=require"
 
 [userenv.development]
 ENVIRONMENT = "development"

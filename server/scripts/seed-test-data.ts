@@ -1,9 +1,9 @@
-import { getPostgresPool, getEnvironmentInfo } from '../utils/postgres';
+import { getSupabasePool, getEnvironmentInfo } from '../utils/supabase';
 import { hashPassword, generateReferralCode } from '../utils/crypto';
 import { signToken } from '../utils/jwt';
 
 async function seedTestData() {
-  const pool = getPostgresPool();
+  const pool = getSupabasePool();
   const envInfo = getEnvironmentInfo();
   console.log(`🔗 Connected to ${envInfo.environment} database (${envInfo.database})\n`);
   try {

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { getPostgresPool } from "../utils/postgres";
+import { getSupabasePool } from "../utils/supabase";
 import { verifyToken } from "../utils/jwt";
 
 const router = Router();
@@ -25,7 +25,7 @@ const authMiddleware = async (req: any, res: Response, next: Function) => {
 router.get("/", authMiddleware, async (req: any, res: Response) => {
   try {
     const { fiat_currency_code } = req.query;
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     let query = "SELECT * FROM user_payment_methods WHERE user_id = $1";
     const params = [req.user.id];
@@ -48,7 +48,7 @@ router.get("/", authMiddleware, async (req: any, res: Response) => {
 // Get specific payment method
 router.get("/:id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const result = await pool.query(
       "SELECT * FROM user_payment_methods WHERE id = $1 AND user_id = $2",
       [req.params.id, req.user.id]
@@ -83,7 +83,7 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
 
     // Verify fiat currency exists
     const currencyResult = await pool.query(
@@ -134,7 +134,7 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const updates: any = {};
     if (provider !== undefined) updates.provider = provider;
     if (account_name !== undefined) updates.account_holder_name = account_name;
@@ -174,7 +174,7 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
 // Delete payment method
 router.delete("/:id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getPostgresPool();
+    const pool = getSupabasePool();
     const result = await pool.query(
       "DELETE FROM user_payment_methods WHERE id = $1 AND user_id = $2 RETURNING *",
       [req.params.id, req.user.id]
