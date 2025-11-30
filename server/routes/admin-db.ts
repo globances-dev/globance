@@ -12,8 +12,8 @@ const adminDbClient = getSupabaseQueryClient();
 async function getValidTables(): Promise<Set<string>> {
   if (validTablesCache) return validTablesCache;
   
-  const pool = adminDbClient;
-  const result = await pool.query(`
+  const db = adminDbClient;
+  const result = await db.exec(`
     SELECT table_name FROM information_schema.tables 
     WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
   `);
@@ -27,8 +27,8 @@ async function getValidColumns(tableName: string): Promise<Set<string>> {
     return tableColumnsCache.get(tableName)!;
   }
   
-  const pool = adminDbClient;
-  const result = await pool.query(`
+  const db = adminDbClient;
+  const result = await db.exec(`
     SELECT column_name FROM information_schema.columns 
     WHERE table_schema = 'public' AND table_name = $1
   `, [tableName]);
@@ -66,8 +66,8 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getSupabaseQueryClient();
-    const result = await pool.query("SELECT role FROM users WHERE id = $1", [
+    const db = getSupabaseQueryClient();
+    const result = await db.exec("SELECT role FROM users WHERE id = $1", [
       decoded.id,
     ]);
 
@@ -85,9 +85,9 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 
 router.get("/tables", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = adminDbClient;
+    const db = adminDbClient;
 
-    const result = await pool.query(`
+    const result = await db.exec(`
       SELECT 
         table_name,
         (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = t.table_name AND table_schema = 'public') as column_count
@@ -99,7 +99,7 @@ router.get("/tables", adminMiddleware, async (req: any, res: Response) => {
     const tablesWithCounts = await Promise.all(
       result.rows.map(async (table) => {
         try {
-          const countResult = await pool.query(
+          const countResult = await db.exec(
             `SELECT COUNT(*) as count FROM "${table.table_name}"`
           );
           return {
@@ -135,9 +135,9 @@ router.get(
         return res.status(400).json({ error: "Invalid table name" });
       }
       
-      const pool = adminDbClient;
+      const db = adminDbClient;
 
-      const result = await pool.query(
+      const result = await db.exec(
         `
       SELECT 
         column_name,
@@ -152,7 +152,7 @@ router.get(
         [tableName]
       );
 
-      const pkResult = await pool.query(
+      const pkResult = await db.exec(
         `
       SELECT a.attname as column_name
       FROM pg_index i
@@ -194,7 +194,7 @@ router.get(
         return res.status(400).json({ error: "Invalid table name" });
       }
 
-      const pool = adminDbClient;
+      const db = adminDbClient;
       const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
 
       let query = `SELECT * FROM "${tableName}"`;
@@ -211,11 +211,11 @@ router.get(
 
       query += ` LIMIT $1 OFFSET $2`;
 
-      const result = await pool.query(query, [
+      const result = await db.exec(query, [
         parseInt(limit as string),
         offset,
       ]);
-      const countResult = await pool.query(
+      const countResult = await db.exec(
         `SELECT COUNT(*) as count FROM "${tableName}"`
       );
 
@@ -262,7 +262,7 @@ router.put(
         }
       }
 
-      const pool = adminDbClient;
+      const db = adminDbClient;
 
       const setClauses: string[] = [];
       const values: any[] = [];
@@ -283,7 +283,7 @@ router.put(
       RETURNING *
     `;
 
-      const result = await pool.query(query, values);
+      const result = await db.exec(query, values);
 
       if (result.rows.length === 0) {
         return res.status(404).json({ error: "Row not found" });
@@ -320,9 +320,9 @@ router.delete(
         return res.status(400).json({ error: "Invalid primary key column" });
       }
 
-      const pool = adminDbClient;
+      const db = adminDbClient;
 
-      const result = await pool.query(
+      const result = await db.exec(
         `DELETE FROM "${tableName}" WHERE "${primaryKey}" = $1 RETURNING *`,
         [primaryKeyValue]
       );
@@ -399,8 +399,8 @@ router.post(
         }
       }
 
-      const pool = adminDbClient;
-      const result = await pool.query(sql);
+      const db = adminDbClient;
+      const result = await db.exec(sql);
 
       console.log(`[AdminDB] Custom query executed by admin ${req.user.id}: ${sql.substring(0, 100)}`);
 

@@ -11,7 +11,7 @@ Your Globance platform is **fully configured** and ready for deployment on Repli
 ### ✅ Project Structure
 - **Frontend**: React + Vite (client/)
 - **Backend**: Express API (server/)
-- **Database**: Supabase (PostgreSQL)
+- **Database**: Supabase (Supabase)
 - **Build System**: Dual build (client + server)
 - **Production Server**: Optimized for Replit Deployments
 

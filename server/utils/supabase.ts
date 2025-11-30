@@ -71,13 +71,18 @@ export async function executeSupabaseQuery(sql: string, params: any[] = []) {
   return { rows };
 }
 
-export function getSupabaseQueryClient() {
-  return {
-    query: executeSupabaseQuery,
-  };
-}
-
 export async function executeSupabaseQuerySingle(sql: string, params: any[] = []) {
   const result = await executeSupabaseQuery(sql, params);
   return result.rows[0] || null;
+}
+
+export function getSupabaseQueryClient() {
+  return {
+    /**
+     * Execute a parameterized SQL statement via the Supabase service-role client.
+     * This replaces any Supabase db.exec usages with a Supabase RPC-backed call.
+     */
+    exec: executeSupabaseQuery,
+    execSingle: executeSupabaseQuerySingle,
+  };
 }

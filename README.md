@@ -17,7 +17,7 @@ A production-ready cloud mining and peer-to-peer marketplace platform built with
 
 - **Frontend**: React 18 + Vite + TypeScript
 - **Backend**: Node.js + Express + TypeScript
-- **Database**: Supabase (PostgreSQL)
+- **Database**: Supabase (Supabase)
 - **Authentication**: JWT
 - **Styling**: Tailwind CSS + Radix UI
 

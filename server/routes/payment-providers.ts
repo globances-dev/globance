@@ -18,8 +18,8 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
   }
 
   try {
-    const pool = getSupabaseQueryClient();
-    const result = await pool.query(
+    const db = getSupabaseQueryClient();
+    const result = await db.exec(
       "SELECT role FROM users WHERE id = $1",
       [decoded.id]
     );
@@ -40,7 +40,7 @@ const adminMiddleware = async (req: any, res: Response, next: Function) => {
 router.get("/", async (req: Request, res: Response) => {
   try {
     const { fiat_currency_code, type } = req.query;
-    const pool = getSupabaseQueryClient();
+    const db = getSupabaseQueryClient();
 
     let query = "SELECT * FROM approved_payment_providers WHERE is_active = true";
     const params: any[] = [];
@@ -57,7 +57,7 @@ router.get("/", async (req: Request, res: Response) => {
 
     query += " ORDER BY type, name";
 
-    const result = await pool.query(query, params);
+    const result = await db.exec(query, params);
     res.json({ providers: result.rows || [] });
   } catch (error: any) {
     console.error("[Payment Providers] Error:", error);
@@ -68,8 +68,8 @@ router.get("/", async (req: Request, res: Response) => {
 // Get all approved payment providers including inactive (admin only)
 router.get("/all", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getSupabaseQueryClient();
-    const result = await pool.query(`
+    const db = getSupabaseQueryClient();
+    const result = await db.exec(`
       SELECT * FROM approved_payment_providers
       ORDER BY fiat_currency, type, name
     `);
@@ -93,10 +93,10 @@ router.post("/", adminMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getSupabaseQueryClient();
+    const db = getSupabaseQueryClient();
 
     // Verify fiat currency exists
-    const currencyResult = await pool.query(
+    const currencyResult = await db.exec(
       "SELECT code FROM fiat_currencies WHERE code = $1",
       [fiat_currency_code]
     );
@@ -107,14 +107,14 @@ router.post("/", adminMiddleware, async (req: any, res: Response) => {
       });
     }
 
-    const result = await pool.query(`
+    const result = await db.exec(`
       INSERT INTO approved_payment_providers (fiat_currency, type, name, is_active)
       VALUES ($1, $2, $3, $4)
       RETURNING *
     `, [fiat_currency_code, type, provider_name, is_active]);
 
     // Audit log
-    await pool.query(`
+    await db.exec(`
       INSERT INTO audit_logs (admin_id, action, resource_type, resource_id, details)
       VALUES ($1, $2, $3, $4, $5)
     `, [req.user.id, "payment_provider_created", "payment_provider", result.rows[0].id, 
@@ -145,7 +145,7 @@ router.put("/:id", adminMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getSupabaseQueryClient();
+    const db = getSupabaseQueryClient();
 
     const updates: string[] = [];
     const params: any[] = [];
@@ -164,7 +164,7 @@ router.put("/:id", adminMiddleware, async (req: any, res: Response) => {
     }
 
     params.push(req.params.id);
-    const result = await pool.query(`
+    const result = await db.exec(`
       UPDATE approved_payment_providers
       SET ${updates.join(", ")}
       WHERE id = $${params.length}
@@ -176,7 +176,7 @@ router.put("/:id", adminMiddleware, async (req: any, res: Response) => {
     }
 
     // Audit log
-    await pool.query(`
+    await db.exec(`
       INSERT INTO audit_logs (admin_id, action, resource_type, resource_id, details)
       VALUES ($1, $2, $3, $4, $5)
     `, [req.user.id, "payment_provider_updated", "payment_provider", req.params.id, 
@@ -195,9 +195,9 @@ router.put("/:id", adminMiddleware, async (req: any, res: Response) => {
 // Delete approved payment provider (admin only)
 router.delete("/:id", adminMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getSupabaseQueryClient();
+    const db = getSupabaseQueryClient();
 
-    const result = await pool.query(`
+    const result = await db.exec(`
       DELETE FROM approved_payment_providers
       WHERE id = $1
       RETURNING *
@@ -208,7 +208,7 @@ router.delete("/:id", adminMiddleware, async (req: any, res: Response) => {
     }
 
     // Audit log
-    await pool.query(`
+    await db.exec(`
       INSERT INTO audit_logs (admin_id, action, resource_type, resource_id, details)
       VALUES ($1, $2, $3, $4, $5)
     `, [req.user.id, "payment_provider_deleted", "payment_provider", req.params.id, 

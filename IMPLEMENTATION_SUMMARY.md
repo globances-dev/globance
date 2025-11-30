@@ -4,7 +4,7 @@
 
 Globance is a **production-ready cloud mining and P2P trading platform** built with:
 - **Frontend**: React 18 + React Router 6 + TypeScript + Tailwind CSS
-- **Backend**: Node.js/Express + Supabase PostgreSQL + NOWPayments API
+- **Backend**: Node.js/Express + Supabase Supabase + NOWPayments API
 - **Authentication**: JWT-based with email/password
 - **Payments**: NOWPayments integration for crypto deposits
 - **Email**: SendGrid for notifications
@@ -84,7 +84,7 @@ Globance is a **production-ready cloud mining and P2P trading platform** built w
 - `POST /api/admin/disputes/:id/resolve` - Resolve with refund
 - `GET /api/admin/audit-logs` - Full transaction audit trail
 
-### 3️⃣ **Complete Database (Supabase PostgreSQL)**
+### 3️⃣ **Complete Database (Supabase Supabase)**
 
 13 tables with proper relationships and indexes:
 - `users` - 800 lines

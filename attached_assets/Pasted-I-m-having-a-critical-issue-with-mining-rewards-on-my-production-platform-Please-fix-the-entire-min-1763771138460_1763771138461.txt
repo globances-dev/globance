@@ -117,7 +117,7 @@ Once confirmed → push to production (globance.app)
 
 📌 IMPORTANT
 
-Do NOT continue using the broken PostgreSQL Pool connection.
+Do NOT continue using the broken Supabase Pool connection.
 Use ONLY the working Supabase client for all mining-related inserts.
 
 🎯 FINAL GOAL

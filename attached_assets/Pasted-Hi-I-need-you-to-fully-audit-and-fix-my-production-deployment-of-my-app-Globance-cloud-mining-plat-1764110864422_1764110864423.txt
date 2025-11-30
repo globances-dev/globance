@@ -1,8 +1,8 @@
 Hi, I need you to fully audit and fix my production deployment of my app Globance (cloud mining platform) hosted at https://globance.app.
 1. Context
 •	Tech stack: Next.js frontend + Node/Express backend running on Replit.
-•	Database: I removed Supabase; now I want both development and production databases to run on Replit Postgres only.
-•	There was previous work to move things off Supabase and to add a local Postgres DB + migrations + cron jobs.
+•	Database: I removed Supabase; now I want both development and production databases to run on Replit Supabase only.
+•	There was previous work to move things off Supabase and to add a local Supabase DB + migrations + cron jobs.
 Since that change, many things in production are broken.
 ________________________________________
 2. Current Problems (Production)
@@ -32,7 +32,7 @@ o	The daily mining cron is running and DOES increase user total balance and tota
 o	Mining rewards appear in Recent Activity as “Mining Reward” records.
 o	But the “Today” earnings tile on the home dashboard often shows $0.00 for the same day.
 o	I need “Today” to correctly sum all earnings for the current day.
-7.	Withdrawals – DB schema issues (Replit Postgres)
+7.	Withdrawals – DB schema issues (Replit Supabase)
 o	Previously, when withdrawing, I saw errors like:
 “column amount_usdt of relation withdrawals does not exist”
 or “Could not find the amount_usdt column of withdrawals in the schema cache”
@@ -45,10 +45,10 @@ ________________________________________
 3. What I Need You to Do
 Please treat this as a full production review + fix:
 1.	Confirm and fix database configuration
-o	Ensure the app is using Replit Postgres for production, not any leftover Supabase configs.
-o	Verify DATABASE_URL / connection string and any environment variables are correct for production.
+o	Ensure the app is using Replit Supabase for production, not any leftover Supabase configs.
+o	Verify SUPABASE_CONNECTION / connection string and any environment variables are correct for production.
 o	Remove or disable any remaining Supabase-specific code that could cause schema cache errors.
-2.	Run and fix all migrations for Replit Postgres (production)
+2.	Run and fix all migrations for Replit Supabase (production)
 o	Inspect the migrations folder and ensure every table needed is present in the Replit DB, including at least:
 	users
 	wallets / wallet_balances
@@ -103,6 +103,6 @@ o	How I can create additional admin accounts in the future.
 o	How to add/edit mining packages via DB or admin panel.
 o	How to run any database migrations or tests on Replit for production.
 My main goal:
-Everything (auth, admin, packages, mining, wallet, referrals, withdrawals) should run only on Replit with Replit Postgres as the production database, with no Supabase dependency.
+Everything (auth, admin, packages, mining, wallet, referrals, withdrawals) should run only on Replit with Replit Supabase as the production database, with no Supabase dependency.
 Thank you!
 

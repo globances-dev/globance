@@ -10,7 +10,7 @@ Globance is a production-ready cloud mining and peer-to-peer marketplace platfor
 - Tailwind CSS for styling
 
 ## System Architecture
-The project utilizes a modern web stack with React 18 (Vite, TypeScript, Tailwind CSS) for the frontend and Node.js (Express, TypeScript) for the backend. **Supabase** (via a service-role client) is the only database layer. All persistence flows through Supabase RPC calls and service-role queries—no DATABASE_URL values or Postgres connection pools are required. Authentication is managed via JWT. Radix UI provides a consistent design system for the UI/UX.
+The project utilizes a modern web stack with React 18 (Vite, TypeScript, Tailwind CSS) for the frontend and Node.js (Express, TypeScript) for the backend. **Supabase** (via a service-role client) is the only database layer. All persistence flows through Supabase RPC calls and service-role queries—no DATABASE_URL values or Supabase connection pools are required. Authentication is managed via JWT. Radix UI provides a consistent design system for the UI/UX.
 
 **Key Features:**
 - **Cloud Mining Packages**: 6 tiered packages (10 USDT - 1000 USDT) offering 2.5% - 3.0% daily returns.

@@ -51,7 +51,7 @@ NODE_ENV=production
 
 - ✅ Schema managed through Supabase SQL Editor and RPC functions
 - ✅ Service-role client (`execute_sql`) powers all CRUD operations
-- ✅ No DATABASE_URL or Postgres pool configuration required
+- ✅ No DATABASE_URL or Supabase pool configuration required
 
 ---
 

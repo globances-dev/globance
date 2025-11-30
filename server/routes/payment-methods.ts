@@ -25,7 +25,7 @@ const authMiddleware = async (req: any, res: Response, next: Function) => {
 router.get("/", authMiddleware, async (req: any, res: Response) => {
   try {
     const { fiat_currency_code } = req.query;
-    const pool = getSupabaseQueryClient();
+    const db = getSupabaseQueryClient();
 
     let query = "SELECT * FROM user_payment_methods WHERE user_id = $1";
     const params = [req.user.id];
@@ -37,7 +37,7 @@ router.get("/", authMiddleware, async (req: any, res: Response) => {
 
     query += " ORDER BY created_at DESC";
 
-    const result = await pool.query(query, params);
+    const result = await db.exec(query, params);
 
     res.json({ payment_methods: result.rows || [] });
   } catch (error: any) {
@@ -48,8 +48,8 @@ router.get("/", authMiddleware, async (req: any, res: Response) => {
 // Get specific payment method
 router.get("/:id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getSupabaseQueryClient();
-    const result = await pool.query(
+    const db = getSupabaseQueryClient();
+    const result = await db.exec(
       "SELECT * FROM user_payment_methods WHERE id = $1 AND user_id = $2",
       [req.params.id, req.user.id]
     );
@@ -83,10 +83,10 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getSupabaseQueryClient();
+    const db = getSupabaseQueryClient();
 
     // Verify fiat currency exists
-    const currencyResult = await pool.query(
+    const currencyResult = await db.exec(
       "SELECT code FROM fiat_currencies WHERE code = $1 AND is_active = true",
       [fiat_currency_code.toUpperCase()]
     );
@@ -97,7 +97,7 @@ router.post("/", authMiddleware, async (req: any, res: Response) => {
       });
     }
 
-    const methodResult = await pool.query(
+    const methodResult = await db.exec(
       `INSERT INTO user_payment_methods (user_id, fiat_currency_code, provider, account_holder_name, account_details)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
@@ -134,7 +134,7 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
       })
       .parse(req.body);
 
-    const pool = getSupabaseQueryClient();
+    const db = getSupabaseQueryClient();
     const updates: any = {};
     if (provider !== undefined) updates.provider = provider;
     if (account_name !== undefined) updates.account_holder_name = account_name;
@@ -153,7 +153,7 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
       .map((key, i) => `${key} = $${i + 1}`)
       .join(", ");
 
-    const updateResult = await pool.query(
+    const updateResult = await db.exec(
       `UPDATE user_payment_methods SET ${setClauses} WHERE id = $${Object.keys(updates).length + 1} AND user_id = $${Object.keys(updates).length + 2} RETURNING *`,
       [...Object.values(updates), req.params.id, req.user.id]
     );
@@ -174,8 +174,8 @@ router.put("/:id", authMiddleware, async (req: any, res: Response) => {
 // Delete payment method
 router.delete("/:id", authMiddleware, async (req: any, res: Response) => {
   try {
-    const pool = getSupabaseQueryClient();
-    const result = await pool.query(
+    const db = getSupabaseQueryClient();
+    const result = await db.exec(
       "DELETE FROM user_payment_methods WHERE id = $1 AND user_id = $2 RETURNING *",
       [req.params.id, req.user.id]
     );
