@@ -3,9 +3,8 @@ export function getPostgresPool() {
 }
 
 export function getEnvironmentInfo() {
-  const environment = process.env.ENVIRONMENT || process.env.NODE_ENV || "development";
   return {
-    environment,
+    environment: "supabase-only",
     database: "supabase",
     mode: "supabase-only",
   };

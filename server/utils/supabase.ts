@@ -6,25 +6,15 @@ function resolveSupabaseConfig() {
   const environment = process.env.ENVIRONMENT || process.env.NODE_ENV || "development";
   const isProduction = environment === "production";
 
-  const url =
-    process.env.SUPABASE_URL ||
-    (isProduction ? process.env.VITE_SUPABASE_URL : process.env.STAGING_SUPABASE_URL) ||
-    process.env.VITE_SUPABASE_URL ||
-    process.env.STAGING_SUPABASE_URL;
-
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    (isProduction
-      ? process.env.SUPABASE_SERVICE_ROLE_KEY
-      : process.env.STAGING_SUPABASE_SERVICE_ROLE_KEY) ||
-    process.env.STAGING_SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url) {
-    throw new Error("Supabase URL not configured");
+    throw new Error("Supabase URL not configured (set SUPABASE_URL or VITE_SUPABASE_URL)");
   }
 
   if (!serviceRoleKey) {
-    throw new Error("Supabase service role key not configured");
+    throw new Error("Supabase service role key not configured (set SUPABASE_SERVICE_ROLE_KEY)");
   }
 
   return { url, serviceRoleKey, environment: isProduction ? "production" : "staging" };

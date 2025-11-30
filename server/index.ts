@@ -16,8 +16,32 @@ import activityRoutes from "./routes/activity";
 import { initializeScheduler } from "./utils/scheduler";
 import { initializeDatabaseTables } from "./utils/db-init";
 
+const REQUIRED_ENV_VARS = [
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "VITE_SUPABASE_URL",
+  "VITE_SUPABASE_ANON_KEY",
+  "JWT_SECRET",
+  "CRON_SECRET",
+];
+
+function logMissingEnvironmentVariables() {
+  const missing = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
+
+  if (missing.length > 0) {
+    console.warn(
+      "[Server] Missing environment variables:",
+      missing.join(", ")
+    );
+    console.warn(
+      "[Server] Ensure Supabase and auth configuration values are set before production use."
+    );
+  }
+}
+
 export function createServer() {
   console.log("[Server] Creating Express server...");
+  logMissingEnvironmentVariables();
   const app = express();
 
   // Initialize database tables on startup (non-blocking)
