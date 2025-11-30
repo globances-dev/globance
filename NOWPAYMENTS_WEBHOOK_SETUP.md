@@ -138,23 +138,11 @@ Look for logs like:
 
 ### Test 3: Verify Database Record
 
-Check if deposit was recorded:
+Use the Supabase SQL editor to confirm the webhook saved a deposit and updated the wallet balance:
 
-```sql
--- Connect to database
-psql "$DATABASE_URL_PROD"
-
--- Check recent deposits
-SELECT id, user_id, amount, network, status, created_at 
-FROM deposits 
-ORDER BY created_at DESC 
-LIMIT 5;
-
--- Check wallet balance
-SELECT user_id, usdt_balance 
-FROM wallets 
-WHERE user_id = '<test_user_id>';
-```
+1. Open the production Supabase project.
+2. Run a SELECT on the `deposits` table ordered by `created_at` to see the latest record.
+3. Check the corresponding `wallets` row to confirm the `usdt_balance` reflects the deposit.
 
 ---
 

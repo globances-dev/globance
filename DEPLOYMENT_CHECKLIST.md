@@ -3,7 +3,7 @@
 **Platform:** Globance Cloud Mining & P2P Trading  
 **Deployment Target:** globance.app  
 **Deployment Type:** Replit Autoscale  
-**Database:** PostgreSQL (Neon) - Dual Database (DEV + PROD)
+**Database:** Supabase (service-role backend + anon client keys)
 
 ---
 
@@ -12,9 +12,6 @@
 ### 1. **Environment Variables (REQUIRED)** ✅
 
 #### **Already Configured:**
-- ✅ `DATABASE_URL` - Production PostgreSQL (Neon)
-- ✅ `DATABASE_URL_DEV` - Development PostgreSQL  
-- ✅ `DATABASE_URL_PROD` - Production PostgreSQL (same as DATABASE_URL)
 - ✅ `NOWPAYMENTS_API_KEY` - NOWPayments API key
 - ✅ `NOWPAYMENTS_EMAIL` - NOWPayments account email
 - ✅ `NOWPAYMENTS_PASSWORD` - NOWPayments account password
@@ -234,19 +231,9 @@ npm run build  # Ensure production build works
 ```
 
 ### Step 2: Database Verification
-```bash
-# Connect to production database
-psql "$DATABASE_URL_PROD"
-
-# Verify tables
-\dt
-
-# Verify packages
-SELECT id, name, min_investment FROM packages;
-
-# Verify admin account
-SELECT email, role FROM users WHERE role = 'admin';
-```
+- Open the Supabase SQL editor for the production project.
+- Verify key tables exist (users, wallets, packages, purchases, earnings).
+- Confirm admin account is present with the `admin` role.
 
 ### Step 3: Environment Configuration
 ```bash
